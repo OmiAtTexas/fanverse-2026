@@ -1,9 +1,13 @@
 {
   "name": "fanverse-2026",
+  "packageManager": "pnpm@8.15.1",
   "version": "1.0.0",
   "private": true,
   "description": "AI-powered fan companion for FIFA World Cup 2026",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
