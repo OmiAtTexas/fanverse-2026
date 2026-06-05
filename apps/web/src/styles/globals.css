@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   FANVERSE 2026 — DESIGN SYSTEM
+   FIFA World Cup 2026 | Mobile-First PWA
+   ============================================================ */
+
+:root {
+  /* Brand Colors */
+  --wc-gold: #C9A227;
+  --wc-gold-light: #E8C35A;
+  --wc-gold-dark: #9B7C1E;
+  --wc-red: #C1272D;
+  --wc-green: #006341;
+  --wc-dark: #0D0D0D;
+  --wc-surface: #181818;
+  --wc-card: #222222;
+  --wc-border: rgba(201, 162, 39, 0.2);
+  --wc-border-subtle: rgba(255, 255, 255, 0.06);
+  --wc-text: #F5F0E8;
+  --wc-muted: #888888;
+  --wc-muted-light: #AAAAAA;
+
+  /* Semantic */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+
+  /* Spacing */
+  --safe-bottom: env(safe-area-inset-bottom, 16px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --nav-height: 76px;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--wc-dark);
+  color: var(--wc-text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  overscroll-behavior: none;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 0; height: 0; }
+* { scrollbar-width: none; }
+
+/* ============================================================
+   TYPOGRAPHY UTILITIES
+   ============================================================ */
+
+.font-display { font-family: var(--font-bebas), 'Impact', sans-serif; }
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--wc-gold-light), var(--wc-gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================================
+   COMPONENT CLASSES
+   ============================================================ */
+
+@layer components {
+  /* Cards */
+  .card-dark {
+    @apply bg-[#222222] border border-[rgba(201,162,39,0.2)] rounded-2xl;
+  }
+
+  .card-surface {
+    @apply bg-[#181818] border border-[rgba(255,255,255,0.06)] rounded-2xl;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply bg-[#C9A227] text-[#0D0D0D] font-semibold rounded-full
+           px-6 py-3 text-sm transition-all duration-150 active:scale-95
+           hover:bg-[#E8C35A] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-outline-gold {
+    @apply border border-[#C9A227] text-[#C9A227] rounded-full
+           px-6 py-3 text-sm font-semibold transition-all duration-150
+           hover:bg-[rgba(201,162,39,0.12)] active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply text-[#888888] rounded-full px-4 py-2 text-sm
+           hover:text-[#F5F0E8] hover:bg-[rgba(255,255,255,0.06)]
+           transition-all duration-150 active:scale-95;
+  }
+
+  /* Bottom Nav Safe Area */
+  .bottom-nav-safe {
+    padding-bottom: calc(var(--safe-bottom) + 8px);
+  }
+
+  /* Fan avatar ring colors by country */
+  .avatar-ring-brazil { @apply ring-2 ring-[#006341]; }
+  .avatar-ring-argentina { @apply ring-2 ring-[#74ACDF]; }
+  .avatar-ring-france { @apply ring-2 ring-[#002395]; }
+  .avatar-ring-germany { @apply ring-2 ring-[#000000]; }
+  .avatar-ring-england { @apply ring-2 ring-[#CF111A]; }
+  .avatar-ring-japan { @apply ring-2 ring-[#BC002D]; }
+  .avatar-ring-usa { @apply ring-2 ring-[#3C3B6E]; }
+
+  /* Badge */
+  .badge-gold {
+    @apply bg-[rgba(201,162,39,0.15)] text-[#C9A227] text-xs font-semibold
+           px-2 py-0.5 rounded-full border border-[rgba(201,162,39,0.3)];
+  }
+
+  .badge-live {
+    @apply bg-[rgba(76,175,80,0.15)] text-[#4CAF50] text-xs font-semibold
+           px-2 py-0.5 rounded-full border border-[rgba(76,175,80,0.3)];
+  }
+
+  /* Input */
+  .input-dark {
+    @apply bg-[#222222] border border-[rgba(255,255,255,0.1)] text-[#F5F0E8]
+           rounded-xl px-4 py-3 text-sm placeholder:text-[#888888]
+           focus:outline-none focus:border-[#C9A227] transition-colors;
+  }
+
+  /* Chat bubble styles */
+  .bubble-ai {
+    @apply bg-[#222222] border border-[rgba(201,162,39,0.2)] rounded-2xl
+           rounded-tl-sm p-3 text-sm text-[#F5F0E8] max-w-[75%];
+  }
+
+  .bubble-user {
+    @apply bg-[rgba(0,99,65,0.25)] border border-[rgba(0,99,65,0.4)]
+           rounded-2xl rounded-tr-sm p-3 text-sm text-[#F5F0E8] max-w-[75%];
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply bg-[#2a2a2a] rounded-lg animate-pulse;
+  }
+
+  /* Tab active state */
+  .tab-active {
+    @apply bg-[rgba(201,162,39,0.15)] text-[#C9A227] border border-[rgba(201,162,39,0.4)];
+  }
+
+  /* Section label */
+  .section-label {
+    @apply text-[11px] font-semibold text-[#888888] uppercase tracking-widest;
+  }
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-up { animation: slide-up 0.3s ease forwards; }
+.animate-fade-in { animation: fade-in 0.2s ease forwards; }
+.animate-pulse-live { animation: pulse-live 1.5s ease-in-out infinite; }
+
+/* Staggered children */
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+
+/* ============================================================
+   PWA SAFE AREAS
+   ============================================================ */
+
+.pt-safe { padding-top: var(--safe-top); }
+.pb-safe { padding-bottom: var(--safe-bottom); }
+
+/* Bottom nav clearance */
+.pb-nav { padding-bottom: calc(var(--nav-height) + var(--safe-bottom)); }
+
+/* ============================================================
+   OFFLINE BANNER
+   ============================================================ */
+
+.offline-banner {
+  @apply fixed top-0 left-0 right-0 z-50 bg-[#f59e0b] text-black
+         text-center text-xs font-semibold py-1;
+}

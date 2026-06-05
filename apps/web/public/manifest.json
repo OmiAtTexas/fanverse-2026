@@ -1,0 +1,114 @@
+{
+  "name": "FanVerse 2026",
+  "short_name": "FanVerse",
+  "description": "Your AI-powered fan companion for FIFA World Cup 2026",
+  "start_url": "/home",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#0D0D0D",
+  "theme_color": "#C9A227",
+  "categories": ["travel", "sports", "social"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "FanVerse Home — Live matches and fan suggestions"
+    },
+    {
+      "src": "/screenshots/matching.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AI Fan Matching — Find fans attending your match"
+    },
+    {
+      "src": "/screenshots/travel.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AI Travel Companion — Match day itinerary"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Matches",
+      "short_name": "Matches",
+      "description": "View your upcoming matches",
+      "url": "/home?tab=matches",
+      "icons": [{ "src": "/icons/shortcut-matches.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Find Fans",
+      "short_name": "Match",
+      "description": "Find fans at your next match",
+      "url": "/matching",
+      "icons": [{ "src": "/icons/shortcut-match.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Plan My Day",
+      "short_name": "Plan",
+      "description": "AI match day planner",
+      "url": "/travel",
+      "icons": [{ "src": "/icons/shortcut-travel.png", "sizes": "96x96" }]
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "scope": "/",
+  "id": "app.fanverse.2026"
+}

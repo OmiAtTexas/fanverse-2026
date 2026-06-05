@@ -1,0 +1,620 @@
+// ============================================================
+// FANVERSE 2026 — DATABASE SCHEMA
+// PostgreSQL via Prisma ORM
+// ============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  FAN
+  MODERATOR
+  ADMIN
+}
+
+enum TrustLevel {
+  NEW        // 0-3 days, limited features
+  REGULAR    // verified email + profile complete
+  TRUSTED    // 7+ days, good history
+  VERIFIED   // ID verified or partner-verified
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  SYSTEM
+  ITINERARY_SHARE
+  MATCH_SHARE
+  LOCATION_SHARE
+}
+
+enum MeetupStatus {
+  DRAFT
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+enum MatchStage {
+  GROUP
+  ROUND_OF_32
+  ROUND_OF_16
+  QUARTER_FINAL
+  SEMI_FINAL
+  THIRD_PLACE
+  FINAL
+}
+
+enum StampType {
+  CITY_VISIT
+  MATCH_ATTENDED
+  FANS_MET
+  GROUP_JOINED
+  ITINERARY_COMPLETED
+  TOURNAMENT_ACHIEVEMENT
+}
+
+enum NotificationType {
+  MATCH_REMINDER
+  MEETUP_ALERT
+  FAN_MATCH
+  GROUP_MESSAGE
+  TRAVEL_ALERT
+  NEARBY_FAN
+  ACHIEVEMENT
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  FAKE_PROFILE
+  INAPPROPRIATE_CONTENT
+  SCAM
+  OTHER
+}
+
+enum Language {
+  EN
+  ES
+  PT
+  FR
+  DE
+  JA
+  KO
+  AR
+  ZH
+}
+
+// ============================================================
+// CORE MODELS
+// ============================================================
+
+model User {
+  id              String     @id @default(cuid())
+  clerkId         String     @unique @map("clerk_id")
+  email           String     @unique
+  username        String     @unique
+  displayName     String     @map("display_name")
+  avatarUrl       String?    @map("avatar_url")
+  bio             String?    @db.Text
+  
+  // Identity
+  nationality     String?    // ISO 3166-1 alpha-2 country code
+  countryFlag     String?    @map("country_flag")
+  supportedTeam   String?    @map("supported_team")  // team code
+  
+  // Age range (privacy-first, no exact DOB)
+  ageRange        String?    @map("age_range")  // e.g. "25-34"
+  
+  // Travel context
+  hostCities      String[]   @map("host_cities")  // ["dallas", "los_angeles", "new_york"]
+  travelDates     Json?      @map("travel_dates")  // { start: Date, end: Date }
+  
+  // Languages spoken
+  languages       Language[]
+  primaryLanguage Language   @default(EN) @map("primary_language")
+  
+  // Interests for matching
+  interests       String[]   // ["food", "nightlife", "photography", "tactics"]
+  
+  // Role & trust
+  role            UserRole   @default(FAN)
+  trustLevel      TrustLevel @default(NEW)
+  riskScore       Float      @default(0) @map("risk_score")
+  isVerified      Boolean    @default(false) @map("is_verified")
+  isBanned        Boolean    @default(false) @map("is_banned")
+  bannedAt        DateTime?  @map("banned_at")
+  bannedReason    String?    @map("banned_reason")
+  
+  // Premium
+  isPremium       Boolean    @default(false) @map("is_premium")
+  premiumUntil    DateTime?  @map("premium_until")
+  
+  // Embedding for AI matching (stored in Pinecone, ref stored here)
+  embeddingVersion Int       @default(0) @map("embedding_version")
+  
+  // Settings
+  pushToken       String?    @map("push_token")
+  notifSettings   Json?      @map("notif_settings")
+  privacySettings Json?      @map("privacy_settings")
+  
+  // Timestamps
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  lastActiveAt    DateTime?  @map("last_active_at")
+  
+  // Relations
+  tickets         UserTicket[]
+  sentConnections     Connection[]    @relation("ConnectionSender")
+  receivedConnections Connection[]    @relation("ConnectionReceiver")
+  ownedGroups     Group[]    @relation("GroupOwner")
+  groupMembers    GroupMember[]
+  sentMessages    Message[]  @relation("MessageSender")
+  meetupsCreated  Meetup[]   @relation("MeetupCreator")
+  meetupAttendees MeetupAttendee[]
+  passport        Passport?
+  stamps          Stamp[]
+  notifications   Notification[]
+  reports         Report[]   @relation("Reporter")
+  reportedBy      Report[]   @relation("Reported")
+  conversationMembers ConversationMember[]
+  itineraries     Itinerary[]
+  
+  @@index([clerkId])
+  @@index([email])
+  @@index([username])
+  @@index([nationality])
+  @@index([supportedTeam])
+  @@index([trustLevel])
+  @@index([riskScore])
+  @@index([lastActiveAt])
+  @@map("users")
+}
+
+// ============================================================
+// MATCHES & TICKETS
+// ============================================================
+
+model WorldCupMatch {
+  id           String      @id @default(cuid())
+  externalId   String      @unique @map("external_id")  // FIFA official ID
+  homeTeam     String      @map("home_team")
+  awayTeam     String      @map("away_team")
+  homeTeamCode String      @map("home_team_code")  // "BRA", "GER"
+  awayTeamCode String      @map("away_team_code")
+  homeScore    Int?        @map("home_score")
+  awayScore    Int?        @map("away_score")
+  stadium      String
+  city         String
+  citySlug     String      @map("city_slug")  // "dallas", "los_angeles"
+  country      String      // "USA", "CAN", "MEX"
+  stage        MatchStage
+  kickoffAt    DateTime    @map("kickoff_at")
+  isCompleted  Boolean     @default(false) @map("is_completed")
+  metaData     Json?       @map("meta_data")
+  
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  
+  tickets      UserTicket[]
+  groups       Group[]     @relation("MatchGroup")
+  
+  @@index([citySlug])
+  @@index([kickoffAt])
+  @@index([stage])
+  @@index([homeTeamCode])
+  @@index([awayTeamCode])
+  @@map("world_cup_matches")
+}
+
+model UserTicket {
+  id        String         @id @default(cuid())
+  userId    String         @map("user_id")
+  matchId   String         @map("match_id")
+  section   String?
+  row       String?
+  seat      String?
+  isVerified Boolean       @default(false) @map("is_verified")
+  
+  createdAt DateTime       @default(now()) @map("created_at")
+  
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match     WorldCupMatch  @relation(fields: [matchId], references: [id])
+  
+  @@unique([userId, matchId])
+  @@index([matchId])
+  @@map("user_tickets")
+}
+
+// ============================================================
+// FAN MATCHING
+// ============================================================
+
+model Connection {
+  id          String   @id @default(cuid())
+  senderId    String   @map("sender_id")
+  receiverId  String   @map("receiver_id")
+  status      String   @default("pending")  // pending | accepted | declined | blocked
+  
+  // AI-generated context
+  matchScore  Float    @map("match_score")  // 0-1
+  matchReasons Json?  @map("match_reasons")  // ["same_match", "food_interest", "language"]
+  icebreaker  String?  @db.Text  // AI-generated conversation starter
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  sender      User     @relation("ConnectionSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User     @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation("ConnectionConversation")
+  
+  @@unique([senderId, receiverId])
+  @@index([receiverId])
+  @@index([status])
+  @@map("connections")
+}
+
+// ============================================================
+// GROUPS & CHAT
+// ============================================================
+
+model Group {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?   @db.Text
+  slug         String    @unique
+  emoji        String?
+  imageUrl     String?   @map("image_url")
+  
+  // Context
+  citySlug     String?   @map("city_slug")
+  country      String?
+  teamCode     String?   @map("team_code")
+  matchId      String?   @map("match_id")
+  tags         String[]
+  
+  // Config
+  isPublic     Boolean   @default(true) @map("is_public")
+  isVerified   Boolean   @default(false) @map("is_verified")
+  maxMembers   Int       @default(1000) @map("max_members")
+  ownerId      String    @map("owner_id")
+  
+  // AI moderation score
+  healthScore  Float     @default(1.0) @map("health_score")
+  
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  
+  owner        User       @relation("GroupOwner", fields: [ownerId], references: [id])
+  members      GroupMember[]
+  match        WorldCupMatch? @relation("MatchGroup", fields: [matchId], references: [id])
+  conversation Conversation?
+  meetups      Meetup[]
+  
+  @@index([citySlug])
+  @@index([teamCode])
+  @@index([slug])
+  @@index([isPublic])
+  @@map("groups")
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String   @map("group_id")
+  userId    String   @map("user_id")
+  role      String   @default("member")  // member | moderator | admin
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  isMuted   Boolean  @default(false) @map("is_muted")
+  
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@map("group_members")
+}
+
+model Conversation {
+  id           String    @id @default(cuid())
+  type         String    // "direct" | "group"
+  groupId      String?   @unique @map("group_id")
+  connectionId String?   @unique @map("connection_id")
+  
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  
+  group        Group?        @relation(fields: [groupId], references: [id])
+  connection   Connection?   @relation("ConnectionConversation", fields: [connectionId], references: [id])
+  members      ConversationMember[]
+  messages     Message[]
+  
+  @@index([type])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  userId         String       @map("user_id")
+  lastReadAt     DateTime?    @map("last_read_at")
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String      @map("conversation_id")
+  senderId       String      @map("sender_id")
+  content        String      @db.Text
+  type           MessageType @default(TEXT)
+  metadata       Json?       // For image URLs, location data, etc.
+  
+  // Moderation
+  isDeleted      Boolean     @default(false) @map("is_deleted")
+  isFlagged      Boolean     @default(false) @map("is_flagged")
+  moderationScore Float?     @map("moderation_score")
+  
+  // Translation cache
+  translations   Json?       // { es: "...", pt: "...", fr: "..." }
+  
+  createdAt      DateTime    @default(now()) @map("created_at")
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([isFlagged])
+  @@map("messages")
+}
+
+// ============================================================
+// MEETUPS
+// ============================================================
+
+model Meetup {
+  id          String        @id @default(cuid())
+  title       String
+  description String?       @db.Text
+  emoji       String        @default("⚽")
+  
+  // Location
+  citySlug    String        @map("city_slug")
+  venueName   String        @map("venue_name")
+  venueAddress String?      @map("venue_address")
+  latitude    Float?
+  longitude   Float?
+  
+  // Timing
+  startsAt    DateTime      @map("starts_at")
+  endsAt      DateTime?     @map("ends_at")
+  
+  // Context
+  groupId     String?       @map("group_id")
+  creatorId   String        @map("creator_id")
+  maxAttendees Int?         @map("max_attendees")
+  status      MeetupStatus  @default(ACTIVE)
+  
+  // Tags
+  tags        String[]
+  
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  
+  creator     User          @relation("MeetupCreator", fields: [creatorId], references: [id])
+  group       Group?        @relation(fields: [groupId], references: [id])
+  attendees   MeetupAttendee[]
+  
+  @@index([citySlug, startsAt])
+  @@index([groupId])
+  @@index([status])
+  @@map("meetups")
+}
+
+model MeetupAttendee {
+  id        String   @id @default(cuid())
+  meetupId  String   @map("meetup_id")
+  userId    String   @map("user_id")
+  status    String   @default("going")  // going | maybe | not_going
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  
+  meetup    Meetup   @relation(fields: [meetupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([meetupId, userId])
+  @@index([userId])
+  @@map("meetup_attendees")
+}
+
+// ============================================================
+// DIGITAL PASSPORT
+// ============================================================
+
+model Passport {
+  id         String   @id @default(cuid())
+  userId     String   @unique @map("user_id")
+  
+  // Stats
+  matchCount    Int    @default(0) @map("match_count")
+  cityCount     Int    @default(0) @map("city_count")
+  fansMetCount  Int    @default(0) @map("fans_met_count")
+  groupsJoined  Int    @default(0) @map("groups_joined")
+  countriesRep  String[] @map("countries_represented")  // nationalities of fans met
+  
+  // Journey story (AI generated)
+  journeyStory  String? @db.Text @map("journey_story")
+  storyGeneratedAt DateTime? @map("story_generated_at")
+  
+  // Sharing
+  shareCode   String   @unique @default(cuid()) @map("share_code")
+  isPublic    Boolean  @default(true) @map("is_public")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stamps      Stamp[]
+  
+  @@map("passports")
+}
+
+model Stamp {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  passportId  String    @map("passport_id")
+  type        StampType
+  
+  // Context
+  citySlug    String?   @map("city_slug")
+  matchId     String?   @map("match_id")
+  description String?
+  iconEmoji   String    @map("icon_emoji")
+  
+  earnedAt    DateTime  @default(now()) @map("earned_at")
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passport    Passport  @relation(fields: [passportId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([type])
+  @@map("stamps")
+}
+
+// ============================================================
+// AI ITINERARIES
+// ============================================================
+
+model Itinerary {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  title       String
+  citySlug    String   @map("city_slug")
+  date        DateTime
+  
+  // AI generated content
+  prompt      String   @db.Text   // Original user request
+  items       Json     // Array of ItineraryItem
+  
+  // Context
+  matchId     String?  @map("match_id")
+  hoursBeforeMatch Int? @map("hours_before_match")
+  
+  // Caching for offline
+  isSaved     Boolean  @default(false) @map("is_saved")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, date])
+  @@index([citySlug])
+  @@map("itineraries")
+}
+
+// ============================================================
+// MODERATION & SAFETY
+// ============================================================
+
+model Report {
+  id          String       @id @default(cuid())
+  reporterId  String       @map("reporter_id")
+  reportedId  String       @map("reported_id")
+  reason      ReportReason
+  description String?      @db.Text
+  messageId   String?      @map("message_id")
+  
+  // Resolution
+  status      String       @default("pending")  // pending | reviewed | resolved | dismissed
+  reviewedBy  String?      @map("reviewed_by")
+  reviewedAt  DateTime?    @map("reviewed_at")
+  resolution  String?      @db.Text
+  
+  createdAt   DateTime     @default(now()) @map("created_at")
+  
+  reporter    User         @relation("Reporter", fields: [reporterId], references: [id])
+  reported    User         @relation("Reported", fields: [reportedId], references: [id])
+  
+  @@index([reportedId])
+  @@index([status])
+  @@map("reports")
+}
+
+model ModerationLog {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  action      String   // "warn" | "mute" | "ban" | "shadow_ban" | "verify"
+  reason      String?  @db.Text
+  moderatorId String?  @map("moderator_id")  // null = automated
+  metadata    Json?
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@map("moderation_logs")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  sentAt    DateTime?        @map("sent_at")
+  
+  createdAt DateTime         @default(now()) @map("created_at")
+  
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================================
+// HOST CITIES (Static reference data)
+// ============================================================
+
+model HostCity {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  country      String
+  countryCode  String   @map("country_code")
+  timezone     String
+  latitude     Float
+  longitude    Float
+  description  String?  @db.Text
+  imageUrl     String?  @map("image_url")
+  
+  // Match venue info
+  stadiumName  String?  @map("stadium_name")
+  stadiumCapacity Int?  @map("stadium_capacity")
+  
+  // Useful info for fans
+  airportCode  String?  @map("airport_code")
+  tips         Json?    // { transport, safety, weather, currency }
+  
+  @@map("host_cities")
+}
