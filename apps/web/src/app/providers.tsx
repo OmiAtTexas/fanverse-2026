@@ -1,7 +1,6 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState, ReactNode } from 'react';
 import { SocketProvider } from '@/lib/socket-context';
 import { Toaster } from 'sonner';
@@ -25,7 +24,6 @@ export function Providers({ children }: { children: ReactNode }) {
         {children}
         <Toaster position="top-center" theme="dark" richColors />
       </SocketProvider>
-      {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
     </QueryClientProvider>
   );
 }

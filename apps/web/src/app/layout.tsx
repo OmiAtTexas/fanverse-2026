@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
-import { Inter } from 'next/font/google';
-import localFont from 'next/font/local';
+import { Inter, Bebas_Neue } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 
-const bebas = localFont({
-  src: '../../public/fonts/BebasNeue-Regular.ttf',
+const bebas = Bebas_Neue({
+  weight: '400',
+  subsets: ['latin'],
   variable: '--font-bebas',
   display: 'swap',
 });
