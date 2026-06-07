@@ -4,6 +4,6 @@ import { Controller, Get } from '@nestjs/common';
 export class AppController {
   @Get('health')
   health() {
-    return { status: 'ok', message: 'FanVerse API running' };
+    return { status: 'ok', version: '1.0.0' };
   }
 }
