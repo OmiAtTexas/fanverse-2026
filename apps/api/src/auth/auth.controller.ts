@@ -11,7 +11,7 @@ export class AuthController {
     const [firstName, ...rest] = (name || '').split(' ');
     const user = await this.prisma.user.upsert({
       where: { clerkId },
-      create: { clerkId, email: email || '', username: clerkId },
+      create: { clerkId, email: email || '', username: clerkId, displayName: name || clerkId },
       update: { email: email || '', lastActiveAt: new Date() },
     });
     return user;
