@@ -8,12 +8,12 @@ export declare class GroupsController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        citySlug: string | null;
-        country: string | null;
         description: string | null;
         slug: string;
         emoji: string | null;
         imageUrl: string | null;
+        citySlug: string | null;
+        country: string | null;
         teamCode: string | null;
         matchId: string | null;
         tags: string[];
