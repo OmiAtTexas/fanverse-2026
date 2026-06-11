@@ -1,5 +1,6 @@
 export declare class MatchesController {
+    private fetchESPN;
     getLive(): Promise<any>;
-    getSchedule(date?: string): Promise<any>;
-    findAll(): Promise<any>;
+    findAll(date?: string): Promise<any>;
+    getSchedule(dates?: string): Promise<any>;
 }

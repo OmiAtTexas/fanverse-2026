@@ -15,39 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MatchesController = void 0;
 const common_1 = require("@nestjs/common");
 let MatchesController = class MatchesController {
-    async getLive() {
-        const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard');
-        const data = await res.json();
-        const events = data.events || [];
-        return events.map((e) => {
-            const comp = e.competitions[0];
-            const home = comp.competitors.find((c) => c.homeAway === 'home');
-            const away = comp.competitors.find((c) => c.homeAway === 'away');
-            return {
-                id: e.id,
-                homeTeam: home?.team?.displayName,
-                awayTeam: away?.team?.displayName,
-                homeTeamCode: home?.team?.abbreviation,
-                awayTeamCode: away?.team?.abbreviation,
-                homeScore: home?.score,
-                awayScore: away?.score,
-                homeLogo: home?.team?.logo,
-                awayLogo: away?.team?.logo,
-                status: e.status?.type?.name,
-                statusDetail: e.status?.type?.detail,
-                clock: e.status?.displayClock,
-                kickoffAt: e.date,
-                venue: comp.venue?.fullName,
-                city: comp.venue?.address?.city,
-                stage: e.season?.type?.name,
-                isLive: e.status?.type?.state === 'in',
-            };
-        });
-    }
-    async getSchedule(date) {
-        const url = date
-            ? `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${date}`
-            : `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard`;
+    async fetchESPN(url) {
         const res = await fetch(url);
         const data = await res.json();
         const events = data.events || [];
@@ -55,56 +23,48 @@ let MatchesController = class MatchesController {
             const comp = e.competitions[0];
             const home = comp.competitors.find((c) => c.homeAway === 'home');
             const away = comp.competitors.find((c) => c.homeAway === 'away');
+            const status = e.status?.type?.state;
+            const completed = status === 'post';
+            const live = status === 'in';
             return {
                 id: e.id,
                 homeTeam: home?.team?.displayName,
                 awayTeam: away?.team?.displayName,
                 homeTeamCode: home?.team?.abbreviation,
                 awayTeamCode: away?.team?.abbreviation,
-                homeScore: home?.score,
-                awayScore: away?.score,
+                homeScore: home?.score || '0',
+                awayScore: away?.score || '0',
                 homeLogo: home?.team?.logo,
                 awayLogo: away?.team?.logo,
                 status: e.status?.type?.name,
-                statusDetail: e.status?.type?.detail,
-                clock: e.status?.displayClock,
-                kickoffAt: e.date,
-                venue: comp.venue?.fullName,
-                city: comp.venue?.address?.city,
-                stage: e.season?.type?.name,
-                isLive: e.status?.type?.state === 'in',
-            };
-        });
-    }
-    async findAll() {
-        const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard');
-        const data = await res.json();
-        const events = data.events || [];
-        return events.map((e) => {
-            const comp = e.competitions[0];
-            const home = comp.competitors.find((c) => c.homeAway === 'home');
-            const away = comp.competitors.find((c) => c.homeAway === 'away');
-            return {
-                id: e.id,
-                homeTeam: home?.team?.displayName,
-                awayTeam: away?.team?.displayName,
-                homeTeamCode: home?.team?.abbreviation,
-                awayTeamCode: away?.team?.abbreviation,
-                homeScore: home?.score,
-                awayScore: away?.score,
-                homeLogo: home?.team?.logo,
-                awayLogo: away?.team?.logo,
-                status: e.status?.type?.name,
-                statusDetail: e.status?.type?.detail,
+                statusDetail: completed ? 'Full Time' : live ? `${e.status?.displayClock} - LIVE` : e.status?.type?.detail,
                 clock: e.status?.displayClock,
                 kickoffAt: e.date,
                 venue: comp.venue?.fullName,
                 city: comp.venue?.address?.city,
                 country: comp.venue?.address?.country,
-                stage: e.season?.type?.name,
-                isLive: e.status?.type?.state === 'in',
+                stage: e.league?.season?.type?.name || 'Group Stage',
+                isLive: live,
+                isCompleted: completed,
+                espnUrl: `https://www.espn.com/soccer/match/_/gameId/${e.id}`,
+                winner: completed ? (parseInt(home?.score) > parseInt(away?.score) ? home?.team?.displayName : parseInt(away?.score) > parseInt(home?.score) ? away?.team?.displayName : 'Draw') : null,
             };
         });
+    }
+    async getLive() {
+        return this.fetchESPN('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard');
+    }
+    async findAll(date) {
+        const url = date
+            ? `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${date}`
+            : `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard`;
+        return this.fetchESPN(url);
+    }
+    async getSchedule(dates) {
+        const url = dates
+            ? `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dates}`
+            : `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard`;
+        return this.fetchESPN(url);
     }
 };
 exports.MatchesController = MatchesController;
@@ -115,18 +75,19 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], MatchesController.prototype, "getLive", null);
 __decorate([
-    (0, common_1.Get)('schedule'),
+    (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('date')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], MatchesController.prototype, "getSchedule", null);
-__decorate([
-    (0, common_1.Get)(),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
 ], MatchesController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('schedule'),
+    __param(0, (0, common_1.Query)('dates')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], MatchesController.prototype, "getSchedule", null);
 exports.MatchesController = MatchesController = __decorate([
     (0, common_1.Controller)('matches')
 ], MatchesController);
