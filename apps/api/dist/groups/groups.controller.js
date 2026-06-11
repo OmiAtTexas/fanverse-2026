@@ -19,10 +19,50 @@ let GroupsController = class GroupsController {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async findAll(city) {
+    async findAll(city, search) {
         return this.prisma.group.findMany({
-            where: city ? { citySlug: city } : {},
-            take: 20,
+            where: {
+                ...(city ? { citySlug: city } : {}),
+                ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
+            },
+            include: { _count: { select: { members: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async create(clerkId, body) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            throw new Error('User not found');
+        const slug = body.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+        return this.prisma.group.create({
+            data: {
+                name: body.name,
+                description: body.description,
+                citySlug: body.citySlug,
+                slug,
+                owner: { connect: { id: user.id } },
+            },
+        });
+    }
+    async join(id, clerkId) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            throw new Error('User not found');
+        const existing = await this.prisma.groupMember.findUnique({
+            where: { groupId_userId: { groupId: id, userId: user.id } },
+        });
+        if (existing)
+            return { message: 'Already a member' };
+        return this.prisma.groupMember.create({
+            data: { groupId: id, userId: user.id },
+        });
+    }
+    async leave(id, clerkId) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            throw new Error('User not found');
+        return this.prisma.groupMember.delete({
+            where: { groupId_userId: { groupId: id, userId: user.id } },
         });
     }
 };
@@ -30,10 +70,35 @@ exports.GroupsController = GroupsController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('city')),
+    __param(1, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], GroupsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], GroupsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)(':id/join'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], GroupsController.prototype, "join", null);
+__decorate([
+    (0, common_1.Post)(':id/leave'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], GroupsController.prototype, "leave", null);
 exports.GroupsController = GroupsController = __decorate([
     (0, common_1.Controller)('groups'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
