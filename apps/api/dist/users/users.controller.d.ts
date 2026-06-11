@@ -2,21 +2,9 @@ import { PrismaService } from '../prisma.service';
 export declare class UsersController {
     private prisma;
     constructor(prisma: PrismaService);
-    search(q: string, clerkId: string): Promise<{
-        id: string;
-        clerkId: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-        bio: string;
-        nationality: string;
-        supportedTeam: string;
-        _count: {
-            followers: number;
-            following: number;
-        };
-    }[]>;
-    suggestions(clerkId: string): Promise<{
+    private getUsersWithStatus;
+    search(q: string, clerkId: string): Promise<any[]>;
+    suggestions(clerkId: string): Promise<any[] | {
         id: string;
         clerkId: string;
         username: string;
@@ -55,9 +43,6 @@ export declare class UsersController {
     } | {
         message: string;
         status: string;
-    } | {
-        message: string;
-        status?: undefined;
     }>;
     acceptFollowRequest(requestId: string, clerkId: string): Promise<{
         success: boolean;

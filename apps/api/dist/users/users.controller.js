@@ -19,38 +19,39 @@ let UsersController = class UsersController {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    async getUsersWithStatus(users, meId) {
+        const myFollows = await this.prisma.follow.findMany({ where: { followerId: meId } });
+        const myRequests = await this.prisma.followRequest.findMany({ where: { fromId: meId } });
+        const theirFollows = await this.prisma.follow.findMany({ where: { followerId: { in: users.map(u => u.id) }, followingId: meId } });
+        return users.map(u => ({
+            ...u,
+            followStatus: myFollows.find(f => f.followingId === u.id) ? 'following'
+                : myRequests.find(r => r.toId === u.id)?.status === 'PENDING' ? 'requested'
+                    : 'none',
+            followsMe: !!theirFollows.find(f => f.followerId === u.id),
+            canChat: !!myFollows.find(f => f.followingId === u.id) && !!theirFollows.find(f => f.followerId === u.id),
+        }));
+    }
     async search(q, clerkId) {
         if (!q || q.length < 2)
             return [];
-        return this.prisma.user.findMany({
-            where: {
-                OR: [
-                    { displayName: { contains: q, mode: 'insensitive' } },
-                    { username: { contains: q, mode: 'insensitive' } },
-                    { nationality: { contains: q, mode: 'insensitive' } },
-                    { supportedTeam: { contains: q, mode: 'insensitive' } },
-                ],
-                NOT: { clerkId: clerkId || 'none' },
-            },
-            select: {
-                id: true, clerkId: true, displayName: true, username: true,
-                avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
-                _count: { select: { followers: true, following: true } },
-            },
+        const me = await this.prisma.user.findUnique({ where: { clerkId } });
+        const users = await this.prisma.user.findMany({
+            where: { OR: [{ displayName: { contains: q, mode: 'insensitive' } }, { username: { contains: q, mode: 'insensitive' } }, { nationality: { contains: q, mode: 'insensitive' } }, { supportedTeam: { contains: q, mode: 'insensitive' } }], NOT: { clerkId: clerkId || 'none' } },
+            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
             take: 20,
         });
+        return me ? this.getUsersWithStatus(users, me.id) : users;
     }
     async suggestions(clerkId) {
-        return this.prisma.user.findMany({
+        const me = await this.prisma.user.findUnique({ where: { clerkId } });
+        const users = await this.prisma.user.findMany({
             where: { NOT: { clerkId: clerkId || 'none' } },
-            select: {
-                id: true, clerkId: true, displayName: true, username: true,
-                avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
-                _count: { select: { followers: true, following: true } },
-            },
+            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
             take: 20,
             orderBy: { createdAt: 'desc' },
         });
+        return me ? this.getUsersWithStatus(users, me.id) : users;
     }
     async getFollowRequests(clerkId) {
         const user = await this.prisma.user.findUnique({ where: { clerkId } });
@@ -66,36 +67,23 @@ let UsersController = class UsersController {
         const me = await this.prisma.user.findUnique({ where: { clerkId } });
         if (!me)
             throw new Error('User not found');
-        const existing = await this.prisma.followRequest.findFirst({
-            where: { fromId: me.id, toId: targetId },
-        });
+        const existing = await this.prisma.followRequest.findFirst({ where: { fromId: me.id, toId: targetId } });
         if (existing)
             return { message: 'Request already sent', status: existing.status };
-        const alreadyFollowing = await this.prisma.follow.findUnique({
-            where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
-        });
-        if (alreadyFollowing)
-            return { message: 'Already following' };
-        const request = await this.prisma.followRequest.create({
-            data: { fromId: me.id, toId: targetId, status: 'PENDING' },
-        });
-        return request;
+        return this.prisma.followRequest.create({ data: { fromId: me.id, toId: targetId, status: 'PENDING' } });
     }
     async acceptFollowRequest(requestId, clerkId) {
         const user = await this.prisma.user.findUnique({ where: { clerkId } });
         if (!user)
             throw new Error('User not found');
         const request = await this.prisma.followRequest.findUnique({ where: { id: requestId } });
-        if (!request || request.toId !== user.id)
+        if (!request)
             throw new Error('Request not found');
         await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'ACCEPTED' } });
         await this.prisma.follow.create({ data: { followerId: request.fromId, followingId: user.id } });
         return { success: true };
     }
     async declineFollowRequest(requestId, clerkId) {
-        const user = await this.prisma.user.findUnique({ where: { clerkId } });
-        if (!user)
-            throw new Error('User not found');
         await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'DECLINED' } });
         return { success: true };
     }
@@ -123,32 +111,20 @@ let UsersController = class UsersController {
     async getProfile(id) {
         return this.prisma.user.findUnique({
             where: { id },
-            select: {
-                id: true, clerkId: true, displayName: true, username: true,
-                avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
-                _count: { select: { followers: true, following: true } },
-            },
+            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
         });
     }
     async updateMe(clerkId, body) {
         return this.prisma.user.update({
             where: { clerkId },
-            data: {
-                nationality: body.nationality,
-                supportedTeam: body.supportedTeam,
-                bio: body.bio,
-                interests: body.interests || [],
-                hostCities: body.hostCities || [],
-            },
+            data: { nationality: body.nationality, supportedTeam: body.supportedTeam, bio: body.bio, interests: body.interests || [], hostCities: body.hostCities || [] },
         });
     }
     async follow(targetId, clerkId) {
         const me = await this.prisma.user.findUnique({ where: { clerkId } });
         if (!me)
             throw new Error('User not found');
-        const existing = await this.prisma.follow.findUnique({
-            where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
-        });
+        const existing = await this.prisma.follow.findUnique({ where: { followerId_followingId: { followerId: me.id, followingId: targetId } } });
         if (existing) {
             await this.prisma.follow.delete({ where: { followerId_followingId: { followerId: me.id, followingId: targetId } } });
             return { following: false };
