@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Headers } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Controller('auth')
@@ -6,20 +6,44 @@ export class AuthController {
   constructor(private prisma: PrismaService) {}
 
   @Post('sync')
-  async syncUser(@Headers('x-user-id') clerkId: string, @Headers('x-user-email') email: string, @Headers('x-user-name') name: string) {
-    if (!clerkId) throw new UnauthorizedException();
-    const [firstName, ...rest] = (name || '').split(' ');
+  async syncUser(
+    @Headers('x-user-id') clerkId: string,
+    @Headers('x-user-email') email: string,
+    @Headers('x-user-name') name: string,
+    @Headers('x-user-avatar') avatarUrl: string,
+  ) {
+    if (!clerkId) return { error: 'No user id' };
+    const displayName = name || email?.split('@')[0] || clerkId;
+    const username = (email?.split('@')[0] || clerkId).replace(/[^a-zA-Z0-9_]/g, '_') + '_' + clerkId.slice(-4);
     const user = await this.prisma.user.upsert({
       where: { clerkId },
-      create: { clerkId, email: email || '', username: clerkId, displayName: name || clerkId },
-      update: { email: email || '', lastActiveAt: new Date() },
+      create: {
+        clerkId,
+        email: email || `${clerkId}@fanverse.app`,
+        username,
+        displayName,
+        avatarUrl: avatarUrl || null,
+        lastActiveAt: new Date(),
+      },
+      update: {
+        email: email || undefined,
+        displayName,
+        avatarUrl: avatarUrl || undefined,
+        lastActiveAt: new Date(),
+      },
     });
     return user;
   }
 
   @Get('me')
   async getMe(@Headers('x-user-id') clerkId: string) {
-    if (!clerkId) throw new UnauthorizedException();
-    return this.prisma.user.findUnique({ where: { clerkId } });
+    if (!clerkId) return null;
+    return this.prisma.user.findUnique({
+      where: { clerkId },
+      select: {
+        id: true, clerkId: true, displayName: true, username: true,
+        avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+      },
+    });
   }
 }

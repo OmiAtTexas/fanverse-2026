@@ -2,7 +2,7 @@ import { PrismaService } from '../prisma.service';
 export declare class AuthController {
     private prisma;
     constructor(prisma: PrismaService);
-    syncUser(clerkId: string, email: string, name: string): Promise<{
+    syncUser(clerkId: string, email: string, name: string, avatarUrl: string): Promise<{
         id: string;
         clerkId: string;
         email: string;
@@ -35,39 +35,17 @@ export declare class AuthController {
         createdAt: Date;
         updatedAt: Date;
         lastActiveAt: Date | null;
+    } | {
+        error: string;
     }>;
     getMe(clerkId: string): Promise<{
         id: string;
         clerkId: string;
-        email: string;
         username: string;
         displayName: string;
-        avatarUrl: string | null;
-        bio: string | null;
-        nationality: string | null;
-        countryFlag: string | null;
-        supportedTeam: string | null;
-        ageRange: string | null;
-        hostCities: string[];
-        travelDates: import("@prisma/client/runtime/library").JsonValue | null;
-        languages: import(".prisma/client").$Enums.Language[];
-        primaryLanguage: import(".prisma/client").$Enums.Language;
-        interests: string[];
-        role: import(".prisma/client").$Enums.UserRole;
-        trustLevel: import(".prisma/client").$Enums.TrustLevel;
-        riskScore: number;
-        isVerified: boolean;
-        isBanned: boolean;
-        bannedAt: Date | null;
-        bannedReason: string | null;
-        isPremium: boolean;
-        premiumUntil: Date | null;
-        embeddingVersion: number;
-        pushToken: string | null;
-        notifSettings: import("@prisma/client/runtime/library").JsonValue | null;
-        privacySettings: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
-        updatedAt: Date;
-        lastActiveAt: Date | null;
+        avatarUrl: string;
+        bio: string;
+        nationality: string;
+        supportedTeam: string;
     }>;
 }
