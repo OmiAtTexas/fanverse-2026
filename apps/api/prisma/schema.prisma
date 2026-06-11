@@ -170,6 +170,8 @@ model User {
   reportedBy      Report[]   @relation("Reported")
   conversationMembers ConversationMember[]
   itineraries     Itinerary[]
+  followers       Follow[]   @relation("UserFollowers")
+  following       Follow[]   @relation("UserFollowing")
   
   @@index([clerkId])
   @@index([email])
@@ -617,4 +619,15 @@ model HostCity {
   tips         Json?    // { transport, safety, weather, currency }
   
   @@map("host_cities")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id])
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
 }
