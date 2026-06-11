@@ -35,6 +35,7 @@ let UsersController = class UsersController {
             select: {
                 id: true, clerkId: true, displayName: true, username: true,
                 avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+                _count: { select: { followers: true, following: true } },
             },
             take: 20,
         });
@@ -45,20 +46,65 @@ let UsersController = class UsersController {
             select: {
                 id: true, clerkId: true, displayName: true, username: true,
                 avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+                _count: { select: { followers: true, following: true } },
             },
             take: 20,
             orderBy: { createdAt: 'desc' },
         });
+    }
+    async getFollowRequests(clerkId) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            return [];
+        return this.prisma.followRequest.findMany({
+            where: { toId: user.id, status: 'PENDING' },
+            include: { from: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async sendFollowRequest(targetId, clerkId) {
+        const me = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!me)
+            throw new Error('User not found');
+        const existing = await this.prisma.followRequest.findFirst({
+            where: { fromId: me.id, toId: targetId },
+        });
+        if (existing)
+            return { message: 'Request already sent', status: existing.status };
+        const alreadyFollowing = await this.prisma.follow.findUnique({
+            where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
+        });
+        if (alreadyFollowing)
+            return { message: 'Already following' };
+        const request = await this.prisma.followRequest.create({
+            data: { fromId: me.id, toId: targetId, status: 'PENDING' },
+        });
+        return request;
+    }
+    async acceptFollowRequest(requestId, clerkId) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            throw new Error('User not found');
+        const request = await this.prisma.followRequest.findUnique({ where: { id: requestId } });
+        if (!request || request.toId !== user.id)
+            throw new Error('Request not found');
+        await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'ACCEPTED' } });
+        await this.prisma.follow.create({ data: { followerId: request.fromId, followingId: user.id } });
+        return { success: true };
+    }
+    async declineFollowRequest(requestId, clerkId) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            throw new Error('User not found');
+        await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'DECLINED' } });
+        return { success: true };
     }
     async getConnections(clerkId) {
         const user = await this.prisma.user.findUnique({ where: { clerkId } });
         if (!user)
             return [];
         return this.prisma.connection.findMany({
-            where: {
-                OR: [{ senderId: user.id }, { receiverId: user.id }],
-                status: 'ACCEPTED',
-            },
+            where: { OR: [{ senderId: user.id }, { receiverId: user.id }], status: 'ACCEPTED' },
             include: {
                 sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
                 receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
@@ -80,6 +126,7 @@ let UsersController = class UsersController {
             select: {
                 id: true, clerkId: true, displayName: true, username: true,
                 avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+                _count: { select: { followers: true, following: true } },
             },
         });
     }
@@ -103,14 +150,10 @@ let UsersController = class UsersController {
             where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
         });
         if (existing) {
-            await this.prisma.follow.delete({
-                where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
-            });
+            await this.prisma.follow.delete({ where: { followerId_followingId: { followerId: me.id, followingId: targetId } } });
             return { following: false };
         }
-        await this.prisma.follow.create({
-            data: { followerId: me.id, followingId: targetId },
-        });
+        await this.prisma.follow.create({ data: { followerId: me.id, followingId: targetId } });
         return { following: true };
     }
 };
@@ -130,6 +173,37 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "suggestions", null);
+__decorate([
+    (0, common_1.Get)('follow-requests'),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getFollowRequests", null);
+__decorate([
+    (0, common_1.Post)(':id/follow-request'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "sendFollowRequest", null);
+__decorate([
+    (0, common_1.Post)('follow-requests/:id/accept'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "acceptFollowRequest", null);
+__decorate([
+    (0, common_1.Post)('follow-requests/:id/decline'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "declineFollowRequest", null);
 __decorate([
     (0, common_1.Get)('connections'),
     __param(0, (0, common_1.Headers)('x-user-id')),

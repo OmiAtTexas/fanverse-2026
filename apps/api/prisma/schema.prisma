@@ -172,6 +172,8 @@ model User {
   itineraries     Itinerary[]
   followers       Follow[]   @relation("UserFollowers")
   following       Follow[]   @relation("UserFollowing")
+  followRequestsSent     FollowRequest[] @relation("FollowRequestFrom")
+  followRequestsReceived FollowRequest[] @relation("FollowRequestTo")
   
   @@index([clerkId])
   @@index([email])
@@ -630,4 +632,16 @@ model Follow {
   following   User     @relation("UserFollowers", fields: [followingId], references: [id])
 
   @@unique([followerId, followingId])
+}
+
+model FollowRequest {
+  id        String   @id @default(cuid())
+  fromId    String
+  toId      String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  from      User     @relation("FollowRequestFrom", fields: [fromId], references: [id])
+  to        User     @relation("FollowRequestTo", fields: [toId], references: [id])
+
+  @@unique([fromId, toId])
 }

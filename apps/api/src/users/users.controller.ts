@@ -21,6 +21,7 @@ export class UsersController {
       select: {
         id: true, clerkId: true, displayName: true, username: true,
         avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+        _count: { select: { followers: true, following: true } },
       },
       take: 20,
     });
@@ -33,10 +34,59 @@ export class UsersController {
       select: {
         id: true, clerkId: true, displayName: true, username: true,
         avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+        _count: { select: { followers: true, following: true } },
       },
       take: 20,
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  @Get('follow-requests')
+  async getFollowRequests(@Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) return [];
+    return this.prisma.followRequest.findMany({
+      where: { toId: user.id, status: 'PENDING' },
+      include: { from: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Post(':id/follow-request')
+  async sendFollowRequest(@Param('id') targetId: string, @Headers('x-user-id') clerkId: string) {
+    const me = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!me) throw new Error('User not found');
+    const existing = await this.prisma.followRequest.findFirst({
+      where: { fromId: me.id, toId: targetId },
+    });
+    if (existing) return { message: 'Request already sent', status: existing.status };
+    const alreadyFollowing = await this.prisma.follow.findUnique({
+      where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
+    });
+    if (alreadyFollowing) return { message: 'Already following' };
+    const request = await this.prisma.followRequest.create({
+      data: { fromId: me.id, toId: targetId, status: 'PENDING' },
+    });
+    return request;
+  }
+
+  @Post('follow-requests/:id/accept')
+  async acceptFollowRequest(@Param('id') requestId: string, @Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new Error('User not found');
+    const request = await this.prisma.followRequest.findUnique({ where: { id: requestId } });
+    if (!request || request.toId !== user.id) throw new Error('Request not found');
+    await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'ACCEPTED' } });
+    await this.prisma.follow.create({ data: { followerId: request.fromId, followingId: user.id } });
+    return { success: true };
+  }
+
+  @Post('follow-requests/:id/decline')
+  async declineFollowRequest(@Param('id') requestId: string, @Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new Error('User not found');
+    await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'DECLINED' } });
+    return { success: true };
   }
 
   @Get('connections')
@@ -44,10 +94,7 @@ export class UsersController {
     const user = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!user) return [];
     return this.prisma.connection.findMany({
-      where: {
-        OR: [{ senderId: user.id }, { receiverId: user.id }],
-        status: 'ACCEPTED',
-      },
+      where: { OR: [{ senderId: user.id }, { receiverId: user.id }], status: 'ACCEPTED' },
       include: {
         sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
         receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
@@ -73,15 +120,13 @@ export class UsersController {
       select: {
         id: true, clerkId: true, displayName: true, username: true,
         avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+        _count: { select: { followers: true, following: true } },
       },
     });
   }
 
   @Post('me')
-  async updateMe(
-    @Headers('x-user-id') clerkId: string,
-    @Body() body: any,
-  ) {
+  async updateMe(@Headers('x-user-id') clerkId: string, @Body() body: any) {
     return this.prisma.user.update({
       where: { clerkId },
       data: {
@@ -102,14 +147,10 @@ export class UsersController {
       where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
     });
     if (existing) {
-      await this.prisma.follow.delete({
-        where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
-      });
+      await this.prisma.follow.delete({ where: { followerId_followingId: { followerId: me.id, followingId: targetId } } });
       return { following: false };
     }
-    await this.prisma.follow.create({
-      data: { followerId: me.id, followingId: targetId },
-    });
+    await this.prisma.follow.create({ data: { followerId: me.id, followingId: targetId } });
     return { following: true };
   }
 }

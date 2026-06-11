@@ -11,6 +11,10 @@ export declare class UsersController {
         bio: string;
         nationality: string;
         supportedTeam: string;
+        _count: {
+            followers: number;
+            following: number;
+        };
     }[]>;
     suggestions(clerkId: string): Promise<{
         id: string;
@@ -21,7 +25,46 @@ export declare class UsersController {
         bio: string;
         nationality: string;
         supportedTeam: string;
+        _count: {
+            followers: number;
+            following: number;
+        };
     }[]>;
+    getFollowRequests(clerkId: string): Promise<({
+        from: {
+            id: string;
+            clerkId: string;
+            displayName: string;
+            avatarUrl: string;
+            nationality: string;
+            supportedTeam: string;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        fromId: string;
+        toId: string;
+        status: string;
+    })[]>;
+    sendFollowRequest(targetId: string, clerkId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        fromId: string;
+        toId: string;
+        status: string;
+    } | {
+        message: string;
+        status: string;
+    } | {
+        message: string;
+        status?: undefined;
+    }>;
+    acceptFollowRequest(requestId: string, clerkId: string): Promise<{
+        success: boolean;
+    }>;
+    declineFollowRequest(requestId: string, clerkId: string): Promise<{
+        success: boolean;
+    }>;
     getConnections(clerkId: string): Promise<({
         sender: {
             id: string;
@@ -42,8 +85,8 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
         senderId: string;
-        receiverId: string;
         status: string;
+        receiverId: string;
         matchScore: number;
         matchReasons: import("@prisma/client/runtime/library").JsonValue | null;
         icebreaker: string | null;
@@ -70,8 +113,8 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
         senderId: string;
-        receiverId: string;
         status: string;
+        receiverId: string;
         matchScore: number;
         matchReasons: import("@prisma/client/runtime/library").JsonValue | null;
         icebreaker: string | null;
@@ -85,6 +128,10 @@ export declare class UsersController {
         bio: string;
         nationality: string;
         supportedTeam: string;
+        _count: {
+            followers: number;
+            following: number;
+        };
     }>;
     updateMe(clerkId: string, body: any): Promise<{
         id: string;
