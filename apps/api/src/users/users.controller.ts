@@ -5,43 +5,49 @@ import { PrismaService } from '../prisma.service';
 export class UsersController {
   constructor(private prisma: PrismaService) {}
 
-  private async getUsersWithStatus(users: any[], meId: string) {
-    const myFollows = await this.prisma.follow.findMany({ where: { followerId: meId } });
-    const myRequests = await this.prisma.followRequest.findMany({ where: { fromId: meId } });
-    const theirFollows = await this.prisma.follow.findMany({ where: { followerId: { in: users.map(u => u.id) }, followingId: meId } });
+  private async enrichUsers(users: any[], clerkId: string) {
+    const me = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!me) return users.map(u => ({ ...u, followStatus: 'none', canChat: false }));
 
-    return users.map(u => ({
-      ...u,
-      followStatus: myFollows.find(f => f.followingId === u.id) ? 'following'
-        : myRequests.find(r => r.toId === u.id)?.status === 'PENDING' ? 'requested'
-        : 'none',
-      followsMe: !!theirFollows.find(f => f.followerId === u.id),
-      canChat: !!myFollows.find(f => f.followingId === u.id) && !!theirFollows.find(f => f.followerId === u.id),
-    }));
+    const sentRequests = await this.prisma.followRequest.findMany({ where: { fromId: me.id } });
+    const acceptedFollows = await this.prisma.follow.findMany({ where: { followerId: me.id } });
+    const theyFollowMe = await this.prisma.follow.findMany({ where: { followingId: me.id, followerId: { in: users.map(u => u.id) } } });
+
+    return users.map(u => {
+      const req = sentRequests.find(r => r.toId === u.id);
+      const iFollow = acceptedFollows.find(f => f.followingId === u.id);
+      const theyFollow = theyFollowMe.find(f => f.followerId === u.id);
+      const mutual = !!iFollow && !!theyFollow;
+
+      return {
+        ...u,
+        followStatus: iFollow ? 'following' : req?.status === 'PENDING' ? 'requested' : 'none',
+        followsMe: !!theyFollow,
+        canChat: mutual,
+      };
+    });
   }
 
   @Get('search')
   async search(@Query('q') q: string, @Headers('x-user-id') clerkId: string) {
     if (!q || q.length < 2) return [];
-    const me = await this.prisma.user.findUnique({ where: { clerkId } });
     const users = await this.prisma.user.findMany({
       where: { OR: [{ displayName: { contains: q, mode: 'insensitive' as any } }, { username: { contains: q, mode: 'insensitive' as any } }, { nationality: { contains: q, mode: 'insensitive' as any } }, { supportedTeam: { contains: q, mode: 'insensitive' as any } }], NOT: { clerkId: clerkId || 'none' } },
       select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
       take: 20,
     });
-    return me ? this.getUsersWithStatus(users, me.id) : users;
+    return this.enrichUsers(users, clerkId);
   }
 
   @Get('suggestions')
   async suggestions(@Headers('x-user-id') clerkId: string) {
-    const me = await this.prisma.user.findUnique({ where: { clerkId } });
     const users = await this.prisma.user.findMany({
       where: { NOT: { clerkId: clerkId || 'none' } },
       select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
       take: 20,
       orderBy: { createdAt: 'desc' },
     });
-    return me ? this.getUsersWithStatus(users, me.id) : users;
+    return this.enrichUsers(users, clerkId);
   }
 
   @Get('follow-requests')
@@ -60,7 +66,7 @@ export class UsersController {
     const me = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!me) throw new Error('User not found');
     const existing = await this.prisma.followRequest.findFirst({ where: { fromId: me.id, toId: targetId } });
-    if (existing) return { message: 'Request already sent', status: existing.status };
+    if (existing) return { status: existing.status };
     return this.prisma.followRequest.create({ data: { fromId: me.id, toId: targetId, status: 'PENDING' } });
   }
 
@@ -69,14 +75,15 @@ export class UsersController {
     const user = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!user) throw new Error('User not found');
     const request = await this.prisma.followRequest.findUnique({ where: { id: requestId } });
-    if (!request) throw new Error('Request not found');
+    if (!request || request.toId !== user.id) throw new Error('Not found');
     await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'ACCEPTED' } });
-    await this.prisma.follow.create({ data: { followerId: request.fromId, followingId: user.id } });
+    const alreadyFollows = await this.prisma.follow.findUnique({ where: { followerId_followingId: { followerId: request.fromId, followingId: user.id } } });
+    if (!alreadyFollows) await this.prisma.follow.create({ data: { followerId: request.fromId, followingId: user.id } });
     return { success: true };
   }
 
   @Post('follow-requests/:id/decline')
-  async declineFollowRequest(@Param('id') requestId: string, @Headers('x-user-id') clerkId: string) {
+  async declineFollowRequest(@Param('id') requestId: string) {
     await this.prisma.followRequest.update({ where: { id: requestId }, data: { status: 'DECLINED' } });
     return { success: true };
   }
@@ -119,18 +126,5 @@ export class UsersController {
       where: { clerkId },
       data: { nationality: body.nationality, supportedTeam: body.supportedTeam, bio: body.bio, interests: body.interests || [], hostCities: body.hostCities || [] },
     });
-  }
-
-  @Post(':id/follow')
-  async follow(@Param('id') targetId: string, @Headers('x-user-id') clerkId: string) {
-    const me = await this.prisma.user.findUnique({ where: { clerkId } });
-    if (!me) throw new Error('User not found');
-    const existing = await this.prisma.follow.findUnique({ where: { followerId_followingId: { followerId: me.id, followingId: targetId } } });
-    if (existing) {
-      await this.prisma.follow.delete({ where: { followerId_followingId: { followerId: me.id, followingId: targetId } } });
-      return { following: false };
-    }
-    await this.prisma.follow.create({ data: { followerId: me.id, followingId: targetId } });
-    return { following: true };
   }
 }

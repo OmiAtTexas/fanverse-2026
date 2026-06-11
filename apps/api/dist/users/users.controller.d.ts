@@ -2,22 +2,9 @@ import { PrismaService } from '../prisma.service';
 export declare class UsersController {
     private prisma;
     constructor(prisma: PrismaService);
-    private getUsersWithStatus;
+    private enrichUsers;
     search(q: string, clerkId: string): Promise<any[]>;
-    suggestions(clerkId: string): Promise<any[] | {
-        id: string;
-        clerkId: string;
-        username: string;
-        displayName: string;
-        avatarUrl: string;
-        bio: string;
-        nationality: string;
-        supportedTeam: string;
-        _count: {
-            followers: number;
-            following: number;
-        };
-    }[]>;
+    suggestions(clerkId: string): Promise<any[]>;
     getFollowRequests(clerkId: string): Promise<({
         from: {
             id: string;
@@ -41,13 +28,12 @@ export declare class UsersController {
         toId: string;
         status: string;
     } | {
-        message: string;
         status: string;
     }>;
     acceptFollowRequest(requestId: string, clerkId: string): Promise<{
         success: boolean;
     }>;
-    declineFollowRequest(requestId: string, clerkId: string): Promise<{
+    declineFollowRequest(requestId: string): Promise<{
         success: boolean;
     }>;
     getConnections(clerkId: string): Promise<({
@@ -151,8 +137,5 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
         lastActiveAt: Date | null;
-    }>;
-    follow(targetId: string, clerkId: string): Promise<{
-        following: boolean;
     }>;
 }
