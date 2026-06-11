@@ -7,10 +7,11 @@ import { AuthController } from './auth/auth.controller';
 import { MatchesController } from './matches/matches.controller';
 import { GroupsController } from './groups/groups.controller';
 import { UsersController } from './users/users.controller';
+import { ChatGateway } from './chat/chat.gateway';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
   controllers: [AppController, AuthController, MatchesController, GroupsController, UsersController],
-  providers: [AppService, PrismaService],
+  providers: [AppService, PrismaService, ChatGateway],
 })
 export class AppModule {}

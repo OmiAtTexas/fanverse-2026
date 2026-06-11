@@ -16,6 +16,7 @@ const auth_controller_1 = require("./auth/auth.controller");
 const matches_controller_1 = require("./matches/matches.controller");
 const groups_controller_1 = require("./groups/groups.controller");
 const users_controller_1 = require("./users/users.controller");
+const chat_gateway_1 = require("./chat/chat.gateway");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -23,7 +24,7 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [config_1.ConfigModule.forRoot({ isGlobal: true })],
         controllers: [app_controller_1.AppController, auth_controller_1.AuthController, matches_controller_1.MatchesController, groups_controller_1.GroupsController, users_controller_1.UsersController],
-        providers: [app_service_1.AppService, prisma_service_1.PrismaService],
+        providers: [app_service_1.AppService, prisma_service_1.PrismaService, chat_gateway_1.ChatGateway],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map
