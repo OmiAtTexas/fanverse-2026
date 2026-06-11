@@ -29,19 +29,43 @@ let GroupsController = class GroupsController {
             orderBy: { createdAt: 'desc' },
         });
     }
+    async findOne(id) {
+        return this.prisma.group.findUnique({
+            where: { id },
+            include: { _count: { select: { members: true } } },
+        });
+    }
+    async getMessages(id) {
+        let conversation = await this.prisma.conversation.findFirst({ where: { groupId: id } });
+        if (!conversation)
+            return [];
+        return this.prisma.message.findMany({
+            where: { conversationId: conversation.id },
+            include: { sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true } } },
+            orderBy: { createdAt: 'asc' },
+            take: 100,
+        });
+    }
+    async sendMessage(id, clerkId, body) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            throw new Error('User not found');
+        let conversation = await this.prisma.conversation.findFirst({ where: { groupId: id } });
+        if (!conversation) {
+            conversation = await this.prisma.conversation.create({ data: { groupId: id, type: 'group' } });
+        }
+        return this.prisma.message.create({
+            data: { conversationId: conversation.id, senderId: user.id, content: body.content, type: 'TEXT' },
+            include: { sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true } } },
+        });
+    }
     async create(clerkId, body) {
         const user = await this.prisma.user.findUnique({ where: { clerkId } });
         if (!user)
             throw new Error('User not found');
         const slug = body.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
         return this.prisma.group.create({
-            data: {
-                name: body.name,
-                description: body.description,
-                citySlug: body.citySlug,
-                slug,
-                owner: { connect: { id: user.id } },
-            },
+            data: { name: body.name, description: body.description, citySlug: body.citySlug, slug, owner: { connect: { id: user.id } } },
         });
     }
     async join(id, clerkId) {
@@ -53,9 +77,7 @@ let GroupsController = class GroupsController {
         });
         if (existing)
             return { message: 'Already a member' };
-        return this.prisma.groupMember.create({
-            data: { groupId: id, userId: user.id },
-        });
+        return this.prisma.groupMember.create({ data: { groupId: id, userId: user.id } });
     }
     async leave(id, clerkId) {
         const user = await this.prisma.user.findUnique({ where: { clerkId } });
@@ -75,6 +97,29 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], GroupsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], GroupsController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/messages'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], GroupsController.prototype, "getMessages", null);
+__decorate([
+    (0, common_1.Post)(':id/messages'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Headers)('x-user-id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], GroupsController.prototype, "sendMessage", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Headers)('x-user-id')),

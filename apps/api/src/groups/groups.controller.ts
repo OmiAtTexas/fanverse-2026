@@ -17,22 +17,51 @@ export class GroupsController {
     });
   }
 
-  @Post()
-  async create(
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.prisma.group.findUnique({
+      where: { id },
+      include: { _count: { select: { members: true } } },
+    });
+  }
+
+  @Get(':id/messages')
+  async getMessages(@Param('id') id: string) {
+    let conversation = await this.prisma.conversation.findFirst({ where: { groupId: id } });
+    if (!conversation) return [];
+    return this.prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      include: { sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+  }
+
+  @Post(':id/messages')
+  async sendMessage(
+    @Param('id') id: string,
     @Headers('x-user-id') clerkId: string,
-    @Body() body: { name: string; description: string; citySlug: string }
+    @Body() body: any,
   ) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new Error('User not found');
+    let conversation = await this.prisma.conversation.findFirst({ where: { groupId: id } });
+    if (!conversation) {
+      conversation = await this.prisma.conversation.create({ data: { groupId: id, type: 'group' } });
+    }
+    return this.prisma.message.create({
+      data: { conversationId: conversation.id, senderId: user.id, content: body.content, type: 'TEXT' },
+      include: { sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true } } },
+    });
+  }
+
+  @Post()
+  async create(@Headers('x-user-id') clerkId: string, @Body() body: any) {
     const user = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!user) throw new Error('User not found');
     const slug = body.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
     return this.prisma.group.create({
-      data: {
-        name: body.name,
-        description: body.description,
-        citySlug: body.citySlug,
-        slug,
-        owner: { connect: { id: user.id } },
-      },
+      data: { name: body.name, description: body.description, citySlug: body.citySlug, slug, owner: { connect: { id: user.id } } },
     });
   }
 
@@ -44,9 +73,7 @@ export class GroupsController {
       where: { groupId_userId: { groupId: id, userId: user.id } },
     });
     if (existing) return { message: 'Already a member' };
-    return this.prisma.groupMember.create({
-      data: { groupId: id, userId: user.id },
-    });
+    return this.prisma.groupMember.create({ data: { groupId: id, userId: user.id } });
   }
 
   @Post(':id/leave')
