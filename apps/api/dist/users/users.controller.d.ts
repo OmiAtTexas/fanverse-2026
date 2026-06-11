@@ -22,6 +22,60 @@ export declare class UsersController {
         nationality: string;
         supportedTeam: string;
     }[]>;
+    getConnections(clerkId: string): Promise<({
+        sender: {
+            id: string;
+            clerkId: string;
+            displayName: string;
+            avatarUrl: string;
+            supportedTeam: string;
+        };
+        receiver: {
+            id: string;
+            clerkId: string;
+            displayName: string;
+            avatarUrl: string;
+            supportedTeam: string;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        senderId: string;
+        receiverId: string;
+        status: string;
+        matchScore: number;
+        matchReasons: import("@prisma/client/runtime/library").JsonValue | null;
+        icebreaker: string | null;
+    })[]>;
+    getConnection(id: string): Promise<{
+        sender: {
+            id: string;
+            clerkId: string;
+            displayName: string;
+            avatarUrl: string;
+            nationality: string;
+            supportedTeam: string;
+        };
+        receiver: {
+            id: string;
+            clerkId: string;
+            displayName: string;
+            avatarUrl: string;
+            nationality: string;
+            supportedTeam: string;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        senderId: string;
+        receiverId: string;
+        status: string;
+        matchScore: number;
+        matchReasons: import("@prisma/client/runtime/library").JsonValue | null;
+        icebreaker: string | null;
+    }>;
     getProfile(id: string): Promise<{
         id: string;
         clerkId: string;
@@ -31,6 +85,40 @@ export declare class UsersController {
         bio: string;
         nationality: string;
         supportedTeam: string;
+    }>;
+    updateMe(clerkId: string, body: any): Promise<{
+        id: string;
+        clerkId: string;
+        email: string;
+        username: string;
+        displayName: string;
+        avatarUrl: string | null;
+        bio: string | null;
+        nationality: string | null;
+        countryFlag: string | null;
+        supportedTeam: string | null;
+        ageRange: string | null;
+        hostCities: string[];
+        travelDates: import("@prisma/client/runtime/library").JsonValue | null;
+        languages: import(".prisma/client").$Enums.Language[];
+        primaryLanguage: import(".prisma/client").$Enums.Language;
+        interests: string[];
+        role: import(".prisma/client").$Enums.UserRole;
+        trustLevel: import(".prisma/client").$Enums.TrustLevel;
+        riskScore: number;
+        isVerified: boolean;
+        isBanned: boolean;
+        bannedAt: Date | null;
+        bannedReason: string | null;
+        isPremium: boolean;
+        premiumUntil: Date | null;
+        embeddingVersion: number;
+        pushToken: string | null;
+        notifSettings: import("@prisma/client/runtime/library").JsonValue | null;
+        privacySettings: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        lastActiveAt: Date | null;
     }>;
     follow(targetId: string, clerkId: string): Promise<{
         following: boolean;

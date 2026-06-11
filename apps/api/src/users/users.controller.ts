@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Headers, Body } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Controller('users')
@@ -16,7 +16,7 @@ export class UsersController {
           { nationality: { contains: q, mode: 'insensitive' as any } },
           { supportedTeam: { contains: q, mode: 'insensitive' as any } },
         ],
-        NOT: { clerkId },
+        NOT: { clerkId: clerkId || 'none' },
       },
       select: {
         id: true, clerkId: true, displayName: true, username: true,
@@ -39,6 +39,33 @@ export class UsersController {
     });
   }
 
+  @Get('connections')
+  async getConnections(@Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) return [];
+    return this.prisma.connection.findMany({
+      where: {
+        OR: [{ senderId: user.id }, { receiverId: user.id }],
+        status: 'ACCEPTED',
+      },
+      include: {
+        sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
+        receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
+      },
+    });
+  }
+
+  @Get('connections/:id')
+  async getConnection(@Param('id') id: string) {
+    return this.prisma.connection.findUnique({
+      where: { id },
+      include: {
+        sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
+        receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
+      },
+    });
+  }
+
   @Get(':id')
   async getProfile(@Param('id') id: string) {
     return this.prisma.user.findUnique({
@@ -46,6 +73,23 @@ export class UsersController {
       select: {
         id: true, clerkId: true, displayName: true, username: true,
         avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+      },
+    });
+  }
+
+  @Post('me')
+  async updateMe(
+    @Headers('x-user-id') clerkId: string,
+    @Body() body: any,
+  ) {
+    return this.prisma.user.update({
+      where: { clerkId },
+      data: {
+        nationality: body.nationality,
+        supportedTeam: body.supportedTeam,
+        bio: body.bio,
+        interests: body.interests || [],
+        hostCities: body.hostCities || [],
       },
     });
   }

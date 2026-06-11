@@ -30,7 +30,7 @@ let UsersController = class UsersController {
                     { nationality: { contains: q, mode: 'insensitive' } },
                     { supportedTeam: { contains: q, mode: 'insensitive' } },
                 ],
-                NOT: { clerkId },
+                NOT: { clerkId: clerkId || 'none' },
             },
             select: {
                 id: true, clerkId: true, displayName: true, username: true,
@@ -50,12 +50,48 @@ let UsersController = class UsersController {
             orderBy: { createdAt: 'desc' },
         });
     }
+    async getConnections(clerkId) {
+        const user = await this.prisma.user.findUnique({ where: { clerkId } });
+        if (!user)
+            return [];
+        return this.prisma.connection.findMany({
+            where: {
+                OR: [{ senderId: user.id }, { receiverId: user.id }],
+                status: 'ACCEPTED',
+            },
+            include: {
+                sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
+                receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
+            },
+        });
+    }
+    async getConnection(id) {
+        return this.prisma.connection.findUnique({
+            where: { id },
+            include: {
+                sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
+                receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
+            },
+        });
+    }
     async getProfile(id) {
         return this.prisma.user.findUnique({
             where: { id },
             select: {
                 id: true, clerkId: true, displayName: true, username: true,
                 avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+            },
+        });
+    }
+    async updateMe(clerkId, body) {
+        return this.prisma.user.update({
+            where: { clerkId },
+            data: {
+                nationality: body.nationality,
+                supportedTeam: body.supportedTeam,
+                bio: body.bio,
+                interests: body.interests || [],
+                hostCities: body.hostCities || [],
             },
         });
     }
@@ -95,12 +131,34 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "suggestions", null);
 __decorate([
+    (0, common_1.Get)('connections'),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getConnections", null);
+__decorate([
+    (0, common_1.Get)('connections/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getConnection", null);
+__decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getProfile", null);
+__decorate([
+    (0, common_1.Post)('me'),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateMe", null);
 __decorate([
     (0, common_1.Post)(':id/follow'),
     __param(0, (0, common_1.Param)('id')),
