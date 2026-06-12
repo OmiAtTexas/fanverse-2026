@@ -23,12 +23,25 @@ let AiController = class AiController {
         if (this.matchCache && Date.now() - this.cacheTime < 3600000)
             return this.matchCache;
         try {
-            const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
+            const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260720');
+            const data = await res.json();
+            const events = data.events || [];
+            if (events.length > 0) {
+                this.matchCache = events.map((e) => {
+                    const comp = e.competitions[0];
+                    const home = comp.competitors.find((c) => c.homeAway === 'home');
+                    const away = comp.competitors.find((c) => c.homeAway === 'away');
+                    const date = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    return `${date}: ${home?.team?.displayName} vs ${away?.team?.displayName} at ${comp.venue?.fullName}, ${comp.venue?.address?.city}`;
+                }).join('\n');
+                this.cacheTime = Date.now();
+                return this.matchCache;
+            }
+            const res2 = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
                 headers: { 'X-Auth-Token': '296b6235a5444d12bea5839c814c4b48' }
             });
-            const data = await res.json();
-            const matches = data.matches || [];
-            this.matchCache = matches.map((m) => `${new Date(m.utcDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${m.homeTeam.name} vs ${m.awayTeam.name} (${m.stage.replace(/_/g, ' ')}) - ${m.group || ''}`).join('\n');
+            const data2 = await res2.json();
+            this.matchCache = (data2.matches || []).map((m) => `${new Date(m.utcDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${m.homeTeam.name} vs ${m.awayTeam.name} (${m.stage.replace(/_/g, ' ')})`).join('\n');
             this.cacheTime = Date.now();
             return this.matchCache;
         }
@@ -50,34 +63,16 @@ let AiController = class AiController {
                     messages: [
                         {
                             role: 'system',
-                            content: `You are a FIFA World Cup 2026 fan companion. Give SHORT answers - max 3-4 sentences. Use emojis. Be direct and specific. Only answer based on the real data below.
+                            content: `You are a FIFA World Cup 2026 fan companion. Give SHORT answers - max 3-4 sentences. Use emojis. Be direct and specific.
 
-FULL MATCH SCHEDULE:
+COMPLETE MATCH SCHEDULE WITH VENUES:
 ${matches}
 
-HOST CITIES & STADIUMS:
-- Dallas: AT&T Stadium (5 group matches, Round of 32 x2, Round of 16, Semi-Final)
-- New York: MetLife Stadium (5 group matches, Round of 32, Quarter-Final, FINAL)
-- Los Angeles: SoFi Stadium (5 group matches, Round of 32, Quarter-Final)
-- Miami: Hard Rock Stadium (4 group matches, Round of 32, Round of 16)
-- Houston: NRG Stadium (4 group matches, Round of 32, Round of 16)
-- Atlanta: Mercedes-Benz Stadium (4 group matches, Round of 32)
-- Boston: Gillette Stadium (4 group matches, Round of 32)
-- Philadelphia: Lincoln Financial Field (4 group matches, Round of 32)
-- Kansas City: Arrowhead Stadium (4 group matches, Round of 32)
-- Seattle: Lumen Field (4 group matches, Round of 32)
-- San Francisco: Levi's Stadium (4 group matches, Round of 32)
-- Mexico City: Estadio Azteca (3 group matches, Round of 32)
-- Guadalajara: Estadio Akron (3 group matches)
-- Monterrey: Estadio BBVA (3 group matches)
-- Toronto: BMO Field (4 group matches, Round of 32)
-- Vancouver: BC Place (3 group matches, Round of 32, Semi-Final)
-
-NEVER make up match information. Use only the data above.`
+Use ONLY the above data when answering match questions. Always mention team names and dates.`
                         },
                         { role: 'user', content: body.message }
                     ],
-                    max_tokens: 200,
+                    max_tokens: 250,
                 }),
             });
             const data = await res.json();
