@@ -8,29 +8,14 @@ export class AiController {
   private async getAllMatches() {
     if (this.matchCache && Date.now() - this.cacheTime < 3600000) return this.matchCache;
     try {
-      const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260720');
-      const data: any = await res.json();
-      const events = data.events || [];
-      if (events.length > 0) {
-        this.matchCache = events.map((e: any) => {
-          const comp = e.competitions[0];
-          const home = comp.competitors.find((c: any) => c.homeAway === 'home');
-          const away = comp.competitors.find((c: any) => c.homeAway === 'away');
-          const date = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          return `${date}: ${home?.team?.displayName} vs ${away?.team?.displayName} at ${comp.venue?.fullName}, ${comp.venue?.address?.city}`;
-        }).join('\n');
-        this.cacheTime = Date.now();
-        return this.matchCache;
-      }
-
-      // Fallback to football-data.org
-      const res2 = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
+      const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
         headers: { 'X-Auth-Token': '296b6235a5444d12bea5839c814c4b48' }
       });
-      const data2: any = await res2.json();
-      this.matchCache = (data2.matches || []).map((m: any) =>
-        `${new Date(m.utcDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${m.homeTeam.name} vs ${m.awayTeam.name} (${m.stage.replace(/_/g, ' ')})`
-      ).join('\n');
+      const data: any = await res.json();
+      this.matchCache = (data.matches || []).map((m: any) => {
+        const date = new Date(m.utcDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return `${date}: ${m.homeTeam.name} vs ${m.awayTeam.name} (${m.stage.replace(/_/g, ' ')})`;
+      }).join('\n');
       this.cacheTime = Date.now();
       return this.matchCache;
     } catch {
@@ -55,10 +40,28 @@ export class AiController {
               role: 'system',
               content: `You are a FIFA World Cup 2026 fan companion. Give SHORT answers - max 3-4 sentences. Use emojis. Be direct and specific.
 
-COMPLETE MATCH SCHEDULE WITH VENUES:
+OFFICIAL MATCH SCHEDULE (from FIFA):
 ${matches}
 
-Use ONLY the above data when answering match questions. Always mention team names and dates.`
+CITY TO STADIUM MAPPING:
+- Dallas/Arlington TX: AT&T Stadium - hosts Netherlands vs Japan (Jun 14), England vs Croatia (Jun 17), Argentina vs Austria (Jun 22), Japan vs Sweden (Jun 25), Argentina vs Jordan (Jun 27), plus knockouts
+- New York/NJ: MetLife Stadium - hosts Brazil vs Morocco, Germany vs Curacao and more, plus the FINAL (Jul 19)
+- Los Angeles: SoFi Stadium
+- Miami: Hard Rock Stadium  
+- Houston: NRG Stadium
+- Atlanta: Mercedes-Benz Stadium
+- Boston/Foxborough: Gillette Stadium
+- Philadelphia: Lincoln Financial Field
+- Kansas City: Arrowhead Stadium
+- Seattle: Lumen Field
+- San Francisco/Santa Clara: Levi's Stadium
+- Mexico City: Estadio Azteca (opening match Jun 11: Mexico vs South Africa)
+- Guadalajara: Estadio Akron
+- Monterrey: Estadio BBVA
+- Toronto: BMO Field
+- Vancouver: BC Place
+
+Use ONLY the official schedule above. Never guess or make up match info.`
             },
             { role: 'user', content: body.message }
           ],
