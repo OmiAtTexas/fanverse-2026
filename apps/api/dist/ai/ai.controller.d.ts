@@ -4,6 +4,10 @@ export declare class AiController {
     private getAllMatches;
     chat(body: {
         message: string;
+        history?: {
+            role: string;
+            content: string;
+        }[];
     }): Promise<{
         reply: any;
     }>;
