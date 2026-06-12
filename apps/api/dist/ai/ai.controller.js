@@ -14,8 +14,10 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiController = void 0;
 const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../prisma.service");
 let AiController = class AiController {
-    constructor() {
+    constructor(prisma) {
+        this.prisma = prisma;
         this.matchCache = '';
         this.cacheTime = 0;
     }
@@ -38,10 +40,25 @@ let AiController = class AiController {
             return '';
         }
     }
-    async chat(body) {
+    async getHistory(clerkId) {
+        if (!clerkId)
+            return [];
+        return this.prisma.aiChatMessage.findMany({
+            where: { clerkId },
+            orderBy: { createdAt: 'asc' },
+            take: 50,
+        });
+    }
+    async clearHistory(clerkId) {
+        if (!clerkId)
+            return;
+        await this.prisma.aiChatMessage.deleteMany({ where: { clerkId } });
+        return { success: true };
+    }
+    async chat(body, clerkId) {
         try {
             const matches = await this.getAllMatches();
-            const systemPrompt = `You are a FIFA World Cup 2026 fan companion. Give SHORT answers - max 3-4 sentences. Use emojis. Be direct and specific. Remember the conversation context.
+            const systemPrompt = `You are a FIFA World Cup 2026 fan companion. Give SHORT answers - max 3-4 sentences. Use emojis. Be direct and specific. Remember the conversation context. Never add disclaimers.
 
 OFFICIAL MATCH SCHEDULE:
 ${matches}
@@ -62,9 +79,7 @@ CITY TO STADIUM:
 - Guadalajara: Estadio Akron
 - Monterrey: Estadio BBVA
 - Toronto: BMO Field
-- Vancouver: BC Place
-
-Never say "this is not in the schedule" or "not officially provided". Just answer naturally and helpfully. Never add disclaimers.`;
+- Vancouver: BC Place`;
             const messages = [
                 { role: 'system', content: systemPrompt },
                 ...(body.history || []).slice(-10),
@@ -76,14 +91,19 @@ Never say "this is not in the schedule" or "not officially provided". Just answe
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
                 },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages,
-                    max_tokens: 250,
-                }),
+                body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, max_tokens: 250 }),
             });
             const data = await res.json();
-            return { reply: data.choices?.[0]?.message?.content || 'Sorry, try again!' };
+            const reply = data.choices?.[0]?.message?.content || 'Sorry, try again!';
+            if (clerkId) {
+                await this.prisma.aiChatMessage.createMany({
+                    data: [
+                        { clerkId, role: 'user', content: body.message },
+                        { clerkId, role: 'assistant', content: reply },
+                    ]
+                });
+            }
+            return { reply };
         }
         catch (e) {
             return { reply: 'Sorry, try again!' };
@@ -92,13 +112,29 @@ Never say "this is not in the schedule" or "not officially provided". Just answe
 };
 exports.AiController = AiController;
 __decorate([
+    (0, common_1.Get)('history'),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "getHistory", null);
+__decorate([
+    (0, common_1.Delete)('history'),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "clearHistory", null);
+__decorate([
     (0, common_1.Post)('chat'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Headers)('x-user-id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "chat", null);
 exports.AiController = AiController = __decorate([
-    (0, common_1.Controller)('ai')
+    (0, common_1.Controller)('ai'),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], AiController);
 //# sourceMappingURL=ai.controller.js.map

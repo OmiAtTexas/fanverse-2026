@@ -1,7 +1,10 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Headers } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 
 @Controller('ai')
 export class AiController {
+  constructor(private prisma: PrismaService) {}
+
   private matchCache: string = '';
   private cacheTime: number = 0;
 
@@ -23,11 +26,28 @@ export class AiController {
     }
   }
 
+  @Get('history')
+  async getHistory(@Headers('x-user-id') clerkId: string) {
+    if (!clerkId) return [];
+    return this.prisma.aiChatMessage.findMany({
+      where: { clerkId },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    });
+  }
+
+  @Delete('history')
+  async clearHistory(@Headers('x-user-id') clerkId: string) {
+    if (!clerkId) return;
+    await this.prisma.aiChatMessage.deleteMany({ where: { clerkId } });
+    return { success: true };
+  }
+
   @Post('chat')
-  async chat(@Body() body: { message: string; history?: { role: string; content: string }[] }) {
+  async chat(@Body() body: { message: string; history?: { role: string; content: string }[] }, @Headers('x-user-id') clerkId: string) {
     try {
       const matches = await this.getAllMatches();
-      const systemPrompt = `You are a FIFA World Cup 2026 fan companion. Give SHORT answers - max 3-4 sentences. Use emojis. Be direct and specific. Remember the conversation context.
+      const systemPrompt = `You are a FIFA World Cup 2026 fan companion. Give SHORT answers - max 3-4 sentences. Use emojis. Be direct and specific. Remember the conversation context. Never add disclaimers.
 
 OFFICIAL MATCH SCHEDULE:
 ${matches}
@@ -48,9 +68,7 @@ CITY TO STADIUM:
 - Guadalajara: Estadio Akron
 - Monterrey: Estadio BBVA
 - Toronto: BMO Field
-- Vancouver: BC Place
-
-Never say "this is not in the schedule" or "not officially provided". Just answer naturally and helpfully. Never add disclaimers.`;
+- Vancouver: BC Place`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
@@ -64,14 +82,21 @@ Never say "this is not in the schedule" or "not officially provided". Just answe
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages,
-          max_tokens: 250,
-        }),
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, max_tokens: 250 }),
       });
       const data = await res.json();
-      return { reply: data.choices?.[0]?.message?.content || 'Sorry, try again!' };
+      const reply = data.choices?.[0]?.message?.content || 'Sorry, try again!';
+
+      if (clerkId) {
+        await this.prisma.aiChatMessage.createMany({
+          data: [
+            { clerkId, role: 'user', content: body.message },
+            { clerkId, role: 'assistant', content: reply },
+          ]
+        });
+      }
+
+      return { reply };
     } catch (e) {
       return { reply: 'Sorry, try again!' };
     }

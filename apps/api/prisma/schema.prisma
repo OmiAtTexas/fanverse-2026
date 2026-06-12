@@ -645,3 +645,14 @@ model FollowRequest {
 
   @@unique([fromId, toId])
 }
+
+model AiChatMessage {
+  id        String   @id @default(cuid())
+  clerkId   String
+  role      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([clerkId])
+  @@map("ai_chat_messages")
+}
