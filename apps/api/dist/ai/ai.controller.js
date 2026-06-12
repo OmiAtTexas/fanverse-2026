@@ -17,24 +17,25 @@ const common_1 = require("@nestjs/common");
 let AiController = class AiController {
     async chat(body) {
         try {
-            const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-goog-api-key': process.env.GEMINI_API_KEY || '',
+                    'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
                 },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `You are a helpful FIFA World Cup 2026 travel and fan companion. You know everything about the 16 host cities in USA, Canada and Mexico. Give concise practical advice about travel, food, transport, stadiums and match day tips. Under 150 words. Be friendly and enthusiastic.\n\nUser: ${body.message}` }] }]
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        { role: 'system', content: 'You are a helpful FIFA World Cup 2026 travel and fan companion. You know everything about the 16 host cities in USA, Canada and Mexico. Give concise practical advice about travel, food, transport, stadiums and match day tips. Under 150 words. Be friendly and enthusiastic.' },
+                        { role: 'user', content: body.message }
+                    ],
+                    max_tokens: 300,
                 }),
             });
             const data = await res.json();
-            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!reply)
-                console.error('Gemini error:', JSON.stringify(data));
-            return { reply: reply || 'Sorry, try again!' };
+            return { reply: data.choices?.[0]?.message?.content || 'Sorry, try again!' };
         }
         catch (e) {
-            console.error('AI error:', e);
             return { reply: 'Sorry, try again!' };
         }
     }
