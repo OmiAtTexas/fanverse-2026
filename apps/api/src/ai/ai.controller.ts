@@ -50,7 +50,7 @@ CITY TO STADIUM:
 - Toronto: BMO Field
 - Vancouver: BC Place
 
-Never make up match info. Use only official schedule above.`;
+Never say "this is not in the schedule" or "not officially provided". Just answer naturally and helpfully. Never add disclaimers.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
