@@ -1,5 +1,7 @@
 export declare class AiController {
-    private getLiveMatches;
+    private matchCache;
+    private cacheTime;
+    private getAllMatches;
     chat(body: {
         message: string;
     }): Promise<{
