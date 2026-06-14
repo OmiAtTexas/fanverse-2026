@@ -99,6 +99,8 @@ export declare class UsersController {
         bio: string;
         nationality: string;
         supportedTeam: string;
+        hostCities: string[];
+        interests: string[];
         _count: {
             followers: number;
             following: number;

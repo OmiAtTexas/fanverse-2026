@@ -33,7 +33,7 @@ export class UsersController {
     if (!q || q.length < 2) return [];
     const users = await this.prisma.user.findMany({
       where: { OR: [{ displayName: { contains: q, mode: 'insensitive' as any } }, { username: { contains: q, mode: 'insensitive' as any } }, { nationality: { contains: q, mode: 'insensitive' as any } }, { supportedTeam: { contains: q, mode: 'insensitive' as any } }], NOT: { clerkId: clerkId || 'none' } },
-      select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
+      select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
       take: 20,
     });
     return this.enrichUsers(users, clerkId);
@@ -43,7 +43,7 @@ export class UsersController {
   async suggestions(@Headers('x-user-id') clerkId: string) {
     const users = await this.prisma.user.findMany({
       where: { NOT: { clerkId: clerkId || 'none' } },
-      select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
+      select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
       take: 20,
       orderBy: { createdAt: 'desc' },
     });
@@ -116,7 +116,7 @@ export class UsersController {
   async getProfile(@Param('id') id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
+      select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
     });
   }
 

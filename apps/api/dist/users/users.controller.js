@@ -44,7 +44,7 @@ let UsersController = class UsersController {
             return [];
         const users = await this.prisma.user.findMany({
             where: { OR: [{ displayName: { contains: q, mode: 'insensitive' } }, { username: { contains: q, mode: 'insensitive' } }, { nationality: { contains: q, mode: 'insensitive' } }, { supportedTeam: { contains: q, mode: 'insensitive' } }], NOT: { clerkId: clerkId || 'none' } },
-            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
+            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
             take: 20,
         });
         return this.enrichUsers(users, clerkId);
@@ -52,7 +52,7 @@ let UsersController = class UsersController {
     async suggestions(clerkId) {
         const users = await this.prisma.user.findMany({
             where: { NOT: { clerkId: clerkId || 'none' } },
-            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
+            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
             take: 20,
             orderBy: { createdAt: 'desc' },
         });
@@ -118,7 +118,7 @@ let UsersController = class UsersController {
     async getProfile(id) {
         return this.prisma.user.findUnique({
             where: { id },
-            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, _count: { select: { followers: true, following: true } } },
+            select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
         });
     }
     async updateMe(clerkId, body) {
