@@ -2,20 +2,198 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ─── FIFA DARK THEME (default) ─── */
 :root {
-  --wc-gold: #C9A227;
-  --wc-red: #C1272D;
-  --wc-green: #006341;
-  --background: #0D0D0D;
-  --surface: #1A1A1A;
-  --surface-alt: #242424;
-  --border: #2E2E2E;
-  --foreground: #F5F5F5;
-  --muted: #888888;
+  --bg: #020F2A;
+  --bg2: #051a3d;
+  --bg3: #0a2454;
+  --border: #0f3066;
+  --text: #f0f4ff;
+  --text2: #8899bb;
+  --text3: #445577;
+  --red: #e8003d;
+  --gold: #c9a227;
+  --gold2: #f0c84a;
+  --blue: #326295;
+  --teal: #00c2a8;
+  --green: #00e676;
+  --purple: #7b2fff;
+  --orange: #ff5c1a;
+  --white: #ffffff;
 }
 
+/* ─── FIFA LIGHT THEME ─── */
+[data-theme="light"] {
+  --bg: #f0f4ff;
+  --bg2: #ffffff;
+  --bg3: #e8edf8;
+  --border: #d0d8f0;
+  --text: #020F2A;
+  --text2: #445577;
+  --text3: #8899bb;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-body), sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.3s ease, color 0.3s ease;
+  overscroll-behavior: none;
+}
+
+.fifa-font { font-family: 'Bebas Neue', sans-serif; letter-spacing: 2px; }
+
+/* Layout */
+.page { min-height: 100vh; padding-bottom: 80px; }
+.inner { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+/* Header */
+.app-header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(2, 15, 42, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.3s;
+}
+[data-theme="light"] .app-header {
+  background: rgba(240, 244, 255, 0.97);
+}
+.app-header-inner { max-width: 480px; margin: 0 auto; padding: 12px 16px; }
+
+/* Bottom Nav */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  background: rgba(2, 15, 42, 0.98);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-around;
+  padding: 8px 4px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  transition: background 0.3s;
+}
+[data-theme="light"] .bottom-nav { background: rgba(240, 244, 255, 0.98); }
+
+/* Cards */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  transition: all 0.2s ease;
+}
+.card:hover { border-color: var(--blue); transform: translateY(-1px); }
+
+/* Inputs */
+.input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--text);
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+.input:focus { border-color: var(--red); }
+.input::placeholder { color: var(--text3); }
+
+select.input { cursor: pointer; }
+
+/* Buttons */
+.btn { border-radius: 12px; font-weight: 700; transition: all 0.2s; cursor: pointer; border: none; font-family: 'Inter', sans-serif; }
+.btn:active { transform: scale(0.97); }
+.btn-red { background: var(--red); color: white; }
+.btn-ghost { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+
+/* Live badge */
+.live-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--red); color: white;
+  font-size: 9px; font-weight: 800;
+  padding: 3px 8px; border-radius: 99px; letter-spacing: 1px;
+}
+
+/* Section label */
+.section-label {
+  font-size: 10px; font-weight: 800;
+  color: var(--text3); letter-spacing: 3px;
+  text-transform: uppercase; margin-bottom: 12px;
+  display: block;
+}
+
+/* Scrollbar */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Animations */
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+@keyframes slide-up { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+
+.pulse-dot { animation: pulse-dot 1.5s infinite; }
+.slide-up { animation: slide-up 0.3s ease forwards; }
+.bounce-anim { animation: bounce 1s infinite; }
+
+/* Match card */
+.match-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+.match-card:hover { border-color: var(--blue); }
+
+/* Chat bubble */
+.bubble-me { background: var(--red); color: white; border-radius: 18px 18px 4px 18px; }
+.bubble-other { background: var(--bg3); color: var(--text); border-radius: 18px 18px 18px 4px; border: 1px solid var(--border); }
+
+/* Profile avatar */
+.avatar {
+  border-radius: 50%; border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; flex-shrink: 0; font-weight: 800;
+  background: var(--bg3); color: var(--text2);
+}
+
+/* Pill */
+.pill {
+  display: inline-flex; align-items: center;
+  padding: 5px 12px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text2);
+  transition: all 0.2s; cursor: pointer; white-space: nowrap;
+}
+.pill.active { background: var(--red); border-color: var(--red); color: white; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: flex-end;
+  backdrop-filter: blur(4px);
+}
+.modal-sheet {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-radius: 24px 24px 0 0;
+  padding: 24px; width: 100%;
+  max-width: 480px; margin: 0 auto;
+}
+
+/* Tag */
+.tag {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px; border-radius: 8px;
+  font-size: 11px; font-weight: 600;
+  background: var(--bg3); color: var(--text2);
 }

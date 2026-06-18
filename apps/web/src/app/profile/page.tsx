@@ -1,18 +1,21 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@/lib/theme';
 import { BottomNav } from '@/components/ui/BottomNav';
 
-const TEAMS = ['Brazil','Argentina','France','England','Germany','Spain','Portugal','Netherlands','Italy','Mexico','USA','Canada','Japan','South Korea','Morocco','Senegal','Australia','Belgium','Croatia','Uruguay'];
-const COUNTRIES = ['USA','Brazil','Argentina','Mexico','England','France','Germany','Spain','Portugal','Italy','Netherlands','Japan','South Korea','Australia','Canada','Morocco','Senegal','India','Nigeria','Turkey','Poland','Colombia'];
-const INTERESTS = ['Food & Drink','Nightlife','Culture','Photography','Tactics','Fan Zones','Stadium Tours','Budget Travel','Luxury Travel'];
+const TEAMS = ['Brazil','Argentina','France','England','Germany','Spain','Portugal','Netherlands','Italy','Mexico','USA','Canada','Japan','South Korea','Morocco','Senegal','Australia','Belgium','Croatia','Uruguay','Colombia','Ecuador','Peru','Saudi Arabia','Tunisia','Uzbekistan','Paraguay','Bosnia-Herzegovina','South Africa','Czechia','Sweden','Austria','Jordan','Chile','Albania','New Zealand','Honduras','Malaysia','Cuba','Panama','Jamaica'];
+const COUNTRIES = ['USA','Brazil','Argentina','Mexico','England','France','Germany','Spain','Portugal','Italy','Netherlands','Japan','South Korea','Australia','Canada','Morocco','Senegal','India','Nigeria','Turkey','Poland','Colombia','Saudi Arabia','UAE','Pakistan','Bangladesh','Indonesia','Philippines','Vietnam','Thailand'];
+const INTERESTS = ['Food & Drink','Nightlife','Culture','Photography','Tactics','Fan Zones','Stadium Tours','Budget Travel','Luxury Travel','Local Transport','History','Music'];
 const CITIES = ['dallas','new_york','los_angeles','miami','houston','atlanta','boston','philadelphia','kansas_city','seattle','san_francisco','mexico_city','guadalajara','monterrey','toronto','vancouver'];
 
 export default function ProfilePage() {
   const { user } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
+  const { theme, toggle } = useTheme();
   const [form, setForm] = useState({ nationality: '', supportedTeam: '', bio: '', interests: [] as string[], hostCities: [] as string[] });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -37,73 +40,101 @@ export default function ProfilePage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const toggle = (arr: string[], val: string) => arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
+  const toggle2 = (arr: string[], val: string) => arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      <header className="sticky top-0 bg-black/95 backdrop-blur border-b border-yellow-900/50 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-yellow-500 text-xl font-bold">←</button>
-        <h1 className="text-xl font-black text-yellow-500 tracking-widest">EDIT PROFILE</h1>
+    <div className="page">
+      <header className="app-header">
+        <div className="app-header-inner flex items-center gap-3">
+          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--red)', padding: '0 4px' }}>←</button>
+          <h1 className="fifa-font" style={{ fontSize: 24, color: 'var(--red)' }}>PROFILE</h1>
+        </div>
       </header>
 
-      <main className="px-4 py-5 space-y-5">
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-yellow-700">
-            {user?.imageUrl ? <img src={user.imageUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-yellow-900 flex items-center justify-center text-3xl font-black text-yellow-500">{user?.firstName?.[0] || '?'}</div>}
+      <main className="inner" style={{ paddingBottom: 100 }}>
+        {/* Avatar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, padding: '20px', background: 'var(--bg2)', borderRadius: 20, border: '1px solid var(--border)' }}>
+          <div className="avatar" style={{ width: 72, height: 72, fontSize: 28, border: '3px solid var(--red)' }}>
+            {user?.imageUrl ? <img src={user.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : user?.firstName?.[0] || '?'}
           </div>
           <div>
-            <p className="font-black text-lg">{user?.firstName} {user?.lastName}</p>
-            <p className="text-gray-500 text-sm">{user?.emailAddresses[0]?.emailAddress}</p>
+            <p style={{ fontWeight: 900, fontSize: 18 }}>{user?.firstName} {user?.lastName}</p>
+            <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3 }}>{user?.emailAddresses[0]?.emailAddress}</p>
           </div>
         </div>
 
-        <div className="space-y-4">
+        {/* Theme Toggle */}
+        <div className="card" style={{ padding: '16px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <label className="text-xs text-gray-400 uppercase tracking-widest font-bold block mb-2">Your Country</label>
-            <select value={form.nationality} onChange={e => setForm(f => ({...f, nationality: e.target.value}))} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-600">
+            <p style={{ fontWeight: 700, fontSize: 14 }}>{theme === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}</p>
+            <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Switch app theme</p>
+          </div>
+          <button onClick={toggle} style={{
+            width: 52, height: 28, borderRadius: 99, border: 'none', cursor: 'pointer',
+            background: theme === 'dark' ? 'var(--red)' : 'var(--bg3)',
+            position: 'relative', transition: 'background 0.3s',
+          }}>
+            <span style={{
+              position: 'absolute', top: 3, left: theme === 'dark' ? 26 : 3,
+              width: 22, height: 22, borderRadius: '50%',
+              background: 'white', transition: 'left 0.3s', display: 'block',
+            }}/>
+          </button>
+        </div>
+
+        {/* Form */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <p className="section-label">Your Country</p>
+            <select value={form.nationality} onChange={e => setForm(f => ({...f, nationality: e.target.value}))} className="input">
               <option value="">Select country</option>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-
           <div>
-            <label className="text-xs text-gray-400 uppercase tracking-widest font-bold block mb-2">Team You Support</label>
-            <select value={form.supportedTeam} onChange={e => setForm(f => ({...f, supportedTeam: e.target.value}))} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-600">
+            <p className="section-label">Team You Support</p>
+            <select value={form.supportedTeam} onChange={e => setForm(f => ({...f, supportedTeam: e.target.value}))} className="input">
               <option value="">Select team</option>
               {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-
           <div>
-            <label className="text-xs text-gray-400 uppercase tracking-widest font-bold block mb-2">Bio</label>
-            <textarea value={form.bio} onChange={e => setForm(f => ({...f, bio: e.target.value}))} placeholder="Tell other fans about yourself..." className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-600 h-24 resize-none" maxLength={150} />
-            <p className="text-[10px] text-gray-600 mt-1">{form.bio.length}/150</p>
+            <p className="section-label">Bio</p>
+            <textarea value={form.bio} onChange={e => setForm(f => ({...f, bio: e.target.value}))} placeholder="Tell other fans about yourself..." className="input" style={{ height: 88, resize: 'none' }} maxLength={150} />
+            <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, textAlign: 'right' }}>{form.bio.length}/150</p>
           </div>
-
           <div>
-            <label className="text-xs text-gray-400 uppercase tracking-widest font-bold block mb-2">Interests</label>
-            <div className="flex flex-wrap gap-2">
+            <p className="section-label">Interests</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {INTERESTS.map(i => (
-                <button key={i} onClick={() => setForm(f => ({...f, interests: toggle(f.interests, i)}))} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${form.interests.includes(i) ? 'bg-yellow-500 text-black border-yellow-500' : 'bg-gray-900 text-gray-400 border-gray-700'}`}>{i}</button>
+                <button key={i} onClick={() => setForm(f => ({...f, interests: toggle2(f.interests, i)}))} className={`pill ${form.interests.includes(i) ? 'active' : ''}`}>{i}</button>
               ))}
             </div>
           </div>
-
           <div>
-            <label className="text-xs text-gray-400 uppercase tracking-widest font-bold block mb-2">Host Cities Visiting</label>
-            <div className="grid grid-cols-2 gap-2">
+            <p className="section-label">Host Cities Visiting</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {CITIES.map(c => (
-                <button key={c} onClick={() => setForm(f => ({...f, hostCities: toggle(f.hostCities, c)}))} className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all text-left ${form.hostCities.includes(c) ? 'bg-yellow-500 text-black border-yellow-500' : 'bg-gray-900 text-gray-400 border-gray-700'}`}>
+                <button key={c} onClick={() => setForm(f => ({...f, hostCities: toggle2(f.hostCities, c)}))} style={{
+                  padding: '10px 12px', borderRadius: 12, border: `1px solid ${form.hostCities.includes(c) ? 'var(--red)' : 'var(--border)'}`,
+                  background: form.hostCities.includes(c) ? 'var(--red)' : 'var(--bg3)',
+                  color: form.hostCities.includes(c) ? 'white' : 'var(--text2)',
+                  fontWeight: 600, fontSize: 12, textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s',
+                }}>
                   📍 {c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())}
                 </button>
               ))}
             </div>
           </div>
-        </div>
 
-        <button onClick={save} disabled={saving} className="w-full bg-yellow-500 text-black font-black py-4 rounded-2xl text-lg disabled:opacity-50 transition-all">
-          {saved ? '✓ Saved!' : saving ? 'Saving...' : 'Save Profile'}
-        </button>
+          <button onClick={save} disabled={saving} style={{ padding: '14px', borderRadius: 14, background: saved ? '#00e676' : 'var(--red)', color: 'white', fontWeight: 800, fontSize: 16, border: 'none', cursor: 'pointer', transition: 'all 0.3s', opacity: saving ? 0.7 : 1 }}>
+            {saved ? '✓ Saved!' : saving ? 'Saving...' : 'Save Profile'}
+          </button>
+
+          <button onClick={() => signOut()} style={{ padding: '14px', borderRadius: 14, background: 'var(--bg3)', color: 'var(--text2)', fontWeight: 700, fontSize: 14, border: '1px solid var(--border)', cursor: 'pointer', marginTop: 4 }}>
+            Sign Out
+          </button>
+        </div>
       </main>
       <BottomNav />
     </div>

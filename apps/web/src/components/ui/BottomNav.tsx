@@ -4,25 +4,30 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navItems = [
-  { href: '/home', emoji: '🏠', label: 'Home' },
-  { href: '/matches', emoji: '⚽', label: 'Matches' },
-  { href: '/fans', emoji: '👥', label: 'Fans' },
-  { href: '/messages', emoji: '💬', label: 'Messages' },
-  { href: '/groups', emoji: '🫂', label: 'Groups' },
-  { href: '/ai', emoji: '🤖', label: 'AI' },
-  { href: '/passport', emoji: '🏅', label: 'Passport' },
+  { href: '/home', label: 'Home', icon: '🏠', color: '#e8003d' },
+  { href: '/matches', label: 'Matches', icon: '⚽', color: '#ff5c1a' },
+  { href: '/fans', label: 'Fans', icon: '👥', color: '#7b2fff' },
+  { href: '/messages', label: 'DMs', icon: '💬', color: '#00c2a8' },
+  { href: '/groups', label: 'Groups', icon: '🫂', color: '#00e676' },
+  { href: '/ai', label: 'AI', icon: '🤖', color: '#ffd700' },
+  { href: '/passport', label: 'Passport', icon: '🏅', color: '#c9a227' },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur border-t border-gray-800 flex justify-around py-2 px-1">
-      {navItems.map(({ href, emoji, label }) => {
+    <nav className="bottom-nav">
+      {navItems.map(({ href, label, icon, color }) => {
         const active = pathname === href || pathname.startsWith(href + '/');
         return (
-          <Link key={href} href={href} className={`flex flex-col items-center gap-0.5 py-1 min-w-[36px] transition-all ${active ? 'text-yellow-500' : 'text-gray-600'}`}>
-            <span className={`text-lg transition-transform ${active ? 'scale-110' : ''}`}>{emoji}</span>
-            <span className={`text-[8px] font-semibold ${active ? 'text-yellow-500' : 'text-gray-600'}`}>{label}</span>
+          <Link key={href} href={href} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+            padding: '4px 6px', borderRadius: 10, textDecoration: 'none',
+            background: active ? `${color}25` : 'transparent',
+            transition: 'all 0.2s', minWidth: 36,
+          }}>
+            <span style={{ fontSize: 17, filter: active ? 'none' : 'grayscale(60%) brightness(0.5)', transition: 'all 0.2s' }}>{icon}</span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: active ? color : 'var(--text3)', letterSpacing: 0.5, transition: 'color 0.2s' }}>{label}</span>
           </Link>
         );
       })}

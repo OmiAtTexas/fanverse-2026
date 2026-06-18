@@ -8,13 +8,21 @@ export default function DMPage({ params }: { params: { id: string } }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [other, setOther] = useState<any>(null);
+  const [convInfo, setConvInfo] = useState<any>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const loadConversation = async () => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations`, { headers: { 'x-user-id': userId || '' } });
+    if (res.ok) {
+      const convs = await res.json();
+      const conv = Array.isArray(convs) ? convs.find((c: any) => c.id === params.id) : null;
+      if (conv?.other) setOther(conv.other);
+    }
+  };
+
   const loadMessages = async () => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations/${params.id}`, {
-      headers: { 'x-user-id': userId || '' }
-    });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations/${params.id}`, { headers: { 'x-user-id': userId || '' } });
     if (res.ok) {
       const data = await res.json();
       const msgs = Array.isArray(data) ? data : [];
@@ -28,15 +36,16 @@ export default function DMPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     if (!userId) return;
+    loadConversation();
     loadMessages();
-    const interval = setInterval(loadMessages, 3000);
-    return () => clearInterval(interval);
+    const i = setInterval(loadMessages, 3000);
+    return () => clearInterval(i);
   }, [params.id, userId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const send = async () => {
-    if (!input.trim() || sending || !other) return;
+    if (!input.trim() || sending || !other?.clerkId) return;
     setSending(true);
     await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/dm/${other.clerkId}`, {
       method: 'POST',
@@ -49,50 +58,50 @@ export default function DMPage({ params }: { params: { id: string } }) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white">
-      <header className="sticky top-0 bg-black border-b border-yellow-900 px-4 py-3 flex items-center gap-3">
-        <a href="/messages" className="text-yellow-500 text-xl font-bold">←</a>
-        <div className="w-10 h-10 rounded-full bg-yellow-900 flex items-center justify-center overflow-hidden">
-          {other?.avatarUrl
-            ? <img src={other.avatarUrl} alt="" className="w-full h-full object-cover" />
-            : <span className="text-yellow-500 font-bold">{other?.displayName?.[0] || '?'}</span>
-          }
-        </div>
-        <div>
-          <h1 className="font-bold text-sm">{other?.displayName || 'Loading...'}</h1>
-          <p className="text-xs text-gray-500">{other?.supportedTeam ? `⚽ ${other.supportedTeam}` : 'Fan'}</p>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
+      <header className="app-header">
+        <div className="app-header-inner" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <a href="/messages" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#00c2a8', textDecoration: 'none', fontWeight: 900 }}>←</a>
+          <div className="avatar" style={{ width: 38, height: 38, fontSize: 16, border: '2px solid #00c2a8' }}>
+            {other?.avatarUrl ? <img src={other.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#00c2a8', fontWeight: 800 }}>{other?.displayName?.[0] || '?'}</span>}
+          </div>
+          <div>
+            <p style={{ fontWeight: 800, fontSize: 15 }}>{other?.displayName || 'Loading...'}</p>
+            <p style={{ fontSize: 11, color: 'var(--text2)' }}>{other?.supportedTeam ? `⚽ ${other.supportedTeam}` : 'Fan'}</p>
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-24">
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', maxWidth: 480, margin: '0 auto', width: '100%', paddingBottom: 80 }}>
         {messages.length === 0 && (
-          <div className="text-center py-16 text-gray-500">
-            <p className="text-5xl mb-3">👋</p>
-            <p className="font-medium">Say hello!</p>
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <p style={{ fontSize: 48, marginBottom: 12 }}>👋</p>
+            <p style={{ color: 'var(--text2)', fontWeight: 600 }}>Start the conversation!</p>
           </div>
         )}
-        {messages.map((m: any, i: number) => {
-          const isMe = m.sender?.clerkId === userId;
-          return (
-            <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-yellow-500 text-black rounded-br-sm' : 'bg-gray-900 border border-gray-800 text-white rounded-bl-sm'}`}>
-                {m.content}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {messages.map((m: any, i: number) => {
+            const isMe = m.sender?.clerkId === userId;
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 6 }}>
+                {!isMe && (
+                  <div className="avatar" style={{ width: 28, height: 28, fontSize: 12, flexShrink: 0 }}>
+                    {m.sender?.avatarUrl ? <img src={m.sender.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : m.sender?.displayName?.[0] || '?'}
+                  </div>
+                )}
+                <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMe ? '#00c2a8' : 'var(--bg2)', color: isMe ? '#000' : 'var(--text)', fontSize: 14, fontWeight: isMe ? 600 : 400, border: isMe ? 'none' : '1px solid var(--border)' }}>
+                  {m.content}
+                </div>
               </div>
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-800 px-4 py-3 flex gap-2">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Type a message..."
-          className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-600"
-        />
-        <button onClick={send} disabled={sending || !input.trim()} className="bg-yellow-500 text-black font-bold px-5 rounded-xl disabled:opacity-50 text-lg">→</button>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border)', padding: '12px 16px', maxWidth: 480, margin: '0 auto', display: 'flex', gap: 8 }}>
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={other ? `Message ${other.displayName}...` : 'Loading...'} className="input" style={{ flex: 1 }} disabled={!other} />
+        <button onClick={send} disabled={sending || !input.trim() || !other} style={{ padding: '12px 18px', borderRadius: 12, background: '#00c2a8', color: '#000', fontWeight: 900, fontSize: 18, border: 'none', cursor: 'pointer', opacity: !input.trim() || !other ? 0.5 : 1 }}>→</button>
       </div>
     </div>
   );
