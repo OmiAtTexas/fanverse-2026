@@ -18,7 +18,6 @@ export class UsersController {
       const iFollow = acceptedFollows.find(f => f.followingId === u.id);
       const theyFollow = theyFollowMe.find(f => f.followerId === u.id);
       const mutual = !!iFollow && !!theyFollow;
-
       return {
         ...u,
         followStatus: iFollow ? 'following' : req?.status === 'PENDING' ? 'requested' : 'none',
@@ -70,6 +69,21 @@ export class UsersController {
     return this.prisma.followRequest.create({ data: { fromId: me.id, toId: targetId, status: 'PENDING' } });
   }
 
+  @Post(':id/unfollow')
+  async unfollow(@Param('id') targetId: string, @Headers('x-user-id') clerkId: string) {
+    const me = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!me) throw new Error('User not found');
+    await this.prisma.follow.deleteMany({ where: { followerId: me.id, followingId: targetId } });
+    await this.prisma.followRequest.deleteMany({ where: { fromId: me.id, toId: targetId } });
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { type: 'direct', AND: [{ members: { some: { userId: me.id } } }, { members: { some: { userId: targetId } } }] },
+    });
+    if (conversation) {
+      await this.prisma.conversation.delete({ where: { id: conversation.id } });
+    }
+    return { success: true };
+  }
+
   @Post('follow-requests/:id/accept')
   async acceptFollowRequest(@Param('id') requestId: string, @Headers('x-user-id') clerkId: string) {
     const user = await this.prisma.user.findUnique({ where: { clerkId } });
@@ -113,11 +127,14 @@ export class UsersController {
   }
 
   @Get(':id')
-  async getProfile(@Param('id') id: string) {
-    return this.prisma.user.findUnique({
+  async getProfile(@Param('id') id: string, @Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({
       where: { id },
       select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
     });
+    if (!user) return null;
+    const [enriched] = await this.enrichUsers([user], clerkId);
+    return enriched;
   }
 
   @Post('me')
