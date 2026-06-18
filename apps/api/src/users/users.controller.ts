@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Headers, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Headers, Body } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Controller('users')
@@ -7,22 +7,19 @@ export class UsersController {
 
   private async enrichUsers(users: any[], clerkId: string) {
     const me = await this.prisma.user.findUnique({ where: { clerkId } });
-    if (!me) return users.map(u => ({ ...u, followStatus: 'none', canChat: false }));
-
+    if (!me) return users.map(u => ({ ...u, followStatus: null, canChat: false }));
     const sentRequests = await this.prisma.followRequest.findMany({ where: { fromId: me.id } });
     const acceptedFollows = await this.prisma.follow.findMany({ where: { followerId: me.id } });
     const theyFollowMe = await this.prisma.follow.findMany({ where: { followingId: me.id, followerId: { in: users.map(u => u.id) } } });
-
     return users.map(u => {
       const req = sentRequests.find(r => r.toId === u.id);
       const iFollow = acceptedFollows.find(f => f.followingId === u.id);
       const theyFollow = theyFollowMe.find(f => f.followerId === u.id);
-      const mutual = !!iFollow && !!theyFollow;
       return {
         ...u,
-        followStatus: iFollow ? 'following' : req?.status === 'PENDING' ? 'requested' : 'none',
+        followStatus: iFollow ? 'following' : req?.status === 'PENDING' ? 'requested' : null,
         followsMe: !!theyFollow,
-        canChat: mutual,
+        canChat: !!iFollow && !!theyFollow,
       };
     });
   }
@@ -43,8 +40,7 @@ export class UsersController {
     const users = await this.prisma.user.findMany({
       where: { NOT: { clerkId: clerkId || 'none' } },
       select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
-      take: 20,
-      orderBy: { createdAt: 'desc' },
+      take: 20, orderBy: { createdAt: 'desc' },
     });
     return this.enrichUsers(users, clerkId);
   }
@@ -78,9 +74,7 @@ export class UsersController {
     const conversation = await this.prisma.conversation.findFirst({
       where: { type: 'direct', AND: [{ members: { some: { userId: me.id } } }, { members: { some: { userId: targetId } } }] },
     });
-    if (conversation) {
-      await this.prisma.conversation.delete({ where: { id: conversation.id } });
-    }
+    if (conversation) await this.prisma.conversation.delete({ where: { id: conversation.id } });
     return { success: true };
   }
 
@@ -115,17 +109,6 @@ export class UsersController {
     });
   }
 
-  @Get('connections/:id')
-  async getConnection(@Param('id') id: string) {
-    return this.prisma.connection.findUnique({
-      where: { id },
-      include: {
-        sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
-        receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
-      },
-    });
-  }
-
   @Get(':id')
   async getProfile(@Param('id') id: string, @Headers('x-user-id') clerkId: string) {
     const user = await this.prisma.user.findUnique({
@@ -133,15 +116,22 @@ export class UsersController {
       select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
     });
     if (!user) return null;
-    const [enriched] = await this.enrichUsers([user], clerkId);
+    const [enriched] = await this.enrichUsers([user], clerkId || '');
     return enriched;
   }
 
   @Post('me')
+  @Patch('me')
   async updateMe(@Headers('x-user-id') clerkId: string, @Body() body: any) {
     return this.prisma.user.update({
       where: { clerkId },
-      data: { nationality: body.nationality, supportedTeam: body.supportedTeam, bio: body.bio, interests: body.interests || [], hostCities: body.hostCities || [] },
+      data: {
+        nationality: body.nationality || undefined,
+        supportedTeam: body.supportedTeam || undefined,
+        bio: body.bio !== undefined ? body.bio : undefined,
+        interests: body.interests || undefined,
+        hostCities: body.hostCities || undefined,
+      },
     });
   }
 }
