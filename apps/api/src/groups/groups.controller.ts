@@ -104,6 +104,23 @@ export class GroupsController {
     } catch (e: any) { if (e.message.includes('banned')) throw e; }
     const member = await this.prisma.groupMember.findUnique({ where: { groupId_userId: { groupId: id, userId: user.id } } });
     if (!member) throw new Error('Join this group to send messages');
+
+    // 15 second cooldown for official city groups
+    const groupInfo: any[] = await this.prisma.$queryRawUnsafe(`SELECT is_official FROM groups WHERE id = '${id}' LIMIT 1`);
+    if (groupInfo[0]?.is_official) {
+      const conv0 = await this.prisma.conversation.findFirst({ where: { groupId: id } });
+      if (conv0) {
+        const lastMsg: any[] = await this.prisma.$queryRawUnsafe(`SELECT created_at FROM messages WHERE conversation_id = '${conv0.id}' AND sender_id = '${user.id}' ORDER BY created_at DESC LIMIT 1`);
+        if (lastMsg.length > 0) {
+          const secondsSince = (Date.now() - new Date(lastMsg[0].created_at).getTime()) / 1000;
+          if (secondsSince < 15) {
+            const wait = Math.ceil(15 - secondsSince);
+            throw new Error(`Please wait ${wait} more second${wait === 1 ? '' : 's'} before sending another message`);
+          }
+        }
+      }
+    }
+
     let conv = await this.prisma.conversation.findFirst({ where: { groupId: id } });
     if (!conv) conv = await this.prisma.conversation.create({ data: { groupId: id, type: 'group' } });
     return this.prisma.message.create({
