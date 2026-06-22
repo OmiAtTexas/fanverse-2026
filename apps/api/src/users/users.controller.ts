@@ -80,9 +80,27 @@ export class UsersController {
     });
   }
 
-  // IMPORTANT: @Post('me') and @Patch('me') MUST come before @Get(':id')
+  // IMPORTANT: @Post('me') and @Patch('me') MUST come before
+  private async updateProfile(clerkId: string, body: any) {
+    return this.prisma.user.update({
+      where: { clerkId },
+      data: {
+        nationality: body.nationality || null,
+        supportedTeam: body.supportedTeam || null,
+        bio: body.bio || null,
+        interests: body.interests || [],
+        hostCities: body.hostCities || [],
+        displayName: body.displayName || undefined,
+      },
+    });
+  }
+ @Get(':id')
   // otherwise NestJS will match 'me' as an :id param
   @Post('me')
+  async updateMePost(@Headers('x-user-id') clerkId: string, @Body() body: any) {
+    return this.updateProfile(clerkId, body);
+  }
+
   @Patch('me')
   async updateMe(@Headers('x-user-id') clerkId: string, @Body() body: any) {
     return this.prisma.user.update({
