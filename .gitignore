@@ -5,3 +5,4 @@ apps/.DS_Store
 node_modules
 .DS_Store
 apps/.DS_Store
+dist/
