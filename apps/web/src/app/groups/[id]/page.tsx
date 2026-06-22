@@ -1,86 +1,107 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useAuth, useUser } from '@clerk/nextjs';
+import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/ui/BottomNav';
 
 export default function GroupChatPage({ params }: { params: { id: string } }) {
   const { userId } = useAuth();
-  const { user } = useUser();
+  const router = useRouter();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [group, setGroup] = useState<any>(null);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadMessages = async () => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${params.id}/messages`);
-    if (res.ok) {
-      const data = await res.json();
-      setMessages(Array.isArray(data) ? data : []);
-    }
+    if (res.ok) { const data = await res.json(); setMessages(Array.isArray(data) ? data : []); }
   };
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${params.id}`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${params.id}`, { headers: { 'x-user-id': userId || '' } })
       .then(r => r.json()).then(setGroup);
     loadMessages();
-    const interval = setInterval(loadMessages, 3000);
-    return () => clearInterval(interval);
-  }, [params.id]);
+    const i = setInterval(loadMessages, 3000);
+    return () => clearInterval(i);
+  }, [params.id, userId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+  const join = async () => {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${params.id}/join`, { method: 'POST', headers: { 'x-user-id': userId || '' } });
+    setGroup((g: any) => ({ ...g, isMember: true }));
+  };
+
   const send = async () => {
     if (!input.trim() || sending) return;
+    setError('');
     setSending(true);
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${params.id}/messages`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${params.id}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-user-id': userId || '' },
       body: JSON.stringify({ content: input.trim() }),
     });
-    setInput('');
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.message || 'Failed to send message');
+    } else {
+      setInput('');
+      loadMessages();
+    }
     setSending(false);
-    loadMessages();
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white">
-      <header className="sticky top-0 bg-black border-b border-yellow-900 px-4 py-3 flex items-center gap-3">
-        <a href="/groups" className="text-yellow-500 text-xl font-bold">←</a>
-        <div className="w-10 h-10 rounded-xl bg-yellow-900/30 border border-yellow-900 flex items-center justify-center text-xl">⚽</div>
-        <div>
-          <h1 className="font-bold text-sm">{group?.name || 'Loading...'}</h1>
-          <p className="text-xs text-gray-500">📍 {group?.citySlug?.replace(/_/g, ' ')}</p>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
+      <header className="app-header">
+        <div className="app-header-inner" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#00e676', padding: 0, fontWeight: 900 }}>←</button>
+          <div style={{ width: 38, height: 38, borderRadius: 12, background: '#00e67622', border: '1px solid #00e67644', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+            {group?.isOfficial ? '🏟️' : '🔒'}
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontWeight: 800, fontSize: 15 }}>{group?.name || 'Loading...'}</p>
+            <p style={{ fontSize: 11, color: 'var(--text2)' }}>👥 {group?._count?.members || 0} members</p>
+          </div>
+          {!group?.isMember && group?.isPublic && (
+            <button onClick={join} style={{ padding: '7px 14px', borderRadius: 10, background: '#00e676', color: '#000', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer' }}>Join</button>
+          )}
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-24">
+      {/* Community guidelines */}
+      {group?.isOfficial && (
+        <div style={{ background: 'rgba(0,230,118,0.05)', borderBottom: '1px solid rgba(0,230,118,0.1)', padding: '6px 16px' }}>
+          <p style={{ fontSize: 10, color: '#00e676', textAlign: 'center' }}>📋 No racism, hate speech, or abusive language. 3 violations = 24hr ban.</p>
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: 80 }}>
         {messages.length === 0 && (
-          <div className="text-center py-16 text-gray-500">
-            <p className="text-5xl mb-3">💬</p>
-            <p className="font-medium">No messages yet</p>
-            <p className="text-sm mt-1">Be the first to say something!</p>
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <p style={{ fontSize: 48, marginBottom: 12 }}>💬</p>
+            <p style={{ color: 'var(--text2)', fontWeight: 600 }}>No messages yet</p>
+            <p style={{ color: 'var(--text3)', fontSize: 12, marginTop: 6 }}>Be the first to say something!</p>
           </div>
         )}
         {messages.map((m: any, i: number) => {
           const isMe = m.sender?.clerkId === userId;
           return (
-            <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
+            <div key={i} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 6, marginBottom: 10 }}>
               {!isMe && (
-                <div className="w-8 h-8 rounded-full bg-yellow-900 flex items-center justify-center text-yellow-500 font-bold text-xs flex-shrink-0 overflow-hidden">
-                  {m.sender?.avatarUrl
-                    ? <img src={m.sender.avatarUrl} alt="" className="w-full h-full object-cover" />
-                    : m.sender?.displayName?.[0] || '?'
-                  }
+                <div className="avatar" style={{ width: 28, height: 28, fontSize: 11, flexShrink: 0 }}>
+                  {m.sender?.avatarUrl ? <img src={m.sender.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : m.sender?.displayName?.[0] || '?'}
                 </div>
               )}
-              <div className={`max-w-[75%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                {!isMe && <p className="text-[10px] text-gray-500 mb-1 ml-1">{m.sender?.displayName}</p>}
-                <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? 'bg-yellow-500 text-black rounded-br-sm' : 'bg-gray-900 border border-gray-800 text-white rounded-bl-sm'}`}>
+              <div style={{ maxWidth: '75%' }}>
+                {!isMe && <p style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>{m.sender?.displayName}</p>}
+                <div style={{ padding: '10px 14px', borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMe ? '#00e676' : 'var(--bg2)', color: isMe ? '#000' : 'var(--text)', fontSize: 14, border: isMe ? 'none' : '1px solid var(--border)' }}>
                   {m.content}
                 </div>
-                <p className="text-[9px] text-gray-600 mt-1 mx-1">{new Date(m.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                <p style={{ fontSize: 9, color: 'var(--text3)', marginTop: 3, textAlign: isMe ? 'right' : 'left' }}>{new Date(m.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </div>
           );
@@ -88,16 +109,23 @@ export default function GroupChatPage({ params }: { params: { id: string } }) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-800 px-4 py-3 flex gap-2">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Type a message..."
-          className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-600"
-        />
-        <button onClick={send} disabled={sending || !input.trim()} className="bg-yellow-500 text-black font-bold px-5 rounded-xl disabled:opacity-50 text-lg">→</button>
-      </div>
+      {error && (
+        <div style={{ background: 'rgba(232,0,61,0.1)', border: '1px solid rgba(232,0,61,0.3)', margin: '0 16px 8px', borderRadius: 10, padding: '8px 12px' }}>
+          <p style={{ fontSize: 12, color: '#e8003d', textAlign: 'center' }}>⛔ {error}</p>
+        </div>
+      )}
+
+      {!group?.isMember ? (
+        <div style={{ padding: '12px 16px', background: 'var(--bg)', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+          <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 10 }}>Join this group to send messages</p>
+          {group?.isPublic && <button onClick={join} style={{ padding: '10px 32px', borderRadius: 12, background: '#00e676', color: '#000', fontWeight: 800, border: 'none', cursor: 'pointer' }}>Join Group</button>}
+        </div>
+      ) : (
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg)', borderTop: '1px solid var(--border)', padding: '10px 16px', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Type a message..." className="input" style={{ flex: 1 }} />
+          <button onClick={send} disabled={sending || !input.trim()} style={{ padding: '11px 16px', borderRadius: 12, background: '#00e676', color: '#000', fontWeight: 900, fontSize: 18, border: 'none', cursor: 'pointer', opacity: !input.trim() ? 0.5 : 1 }}>→</button>
+        </div>
+      )}
     </div>
   );
 }
