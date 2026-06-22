@@ -38,6 +38,25 @@ export class GroupsController {
       .map(g => ({ ...g, isMember: memberGroupIds.has(g.id), _count: { members: g.memberCount } }));
   }
 
+
+  @Get('hidden')
+  async getHidden(@Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) return [];
+    try {
+      const hidden: any[] = await this.prisma.$queryRawUnsafe(`SELECT g.id, g.name, g.city_slug as "citySlug", g.is_official as "isOfficial" FROM groups g INNER JOIN hidden_groups hg ON hg.group_id = g.id WHERE hg.user_id = '${user.id}'`);
+      return hidden;
+    } catch (e) { return []; }
+  }
+
+  @Post(':id/unhide')
+  async unhide(@Param('id') id: string, @Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new Error('User not found');
+    await this.prisma.$queryRawUnsafe(`DELETE FROM hidden_groups WHERE user_id = '${user.id}' AND group_id = '${id}'`);
+    return { success: true };
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string, @Headers('x-user-id') clerkId?: string) {
     const user = clerkId ? await this.prisma.user.findUnique({ where: { clerkId } }) : null;
