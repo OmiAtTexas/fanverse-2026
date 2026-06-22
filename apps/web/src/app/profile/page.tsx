@@ -37,7 +37,7 @@ export default function ProfilePage() {
             {user?.imageUrl ? <img src={user.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : user?.firstName?.[0] || '?'}
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 4 }}>{user?.firstName} {user?.lastName}</h2>
-          <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>{user?.emailAddresses[0]?.emailAddress}</p>
+          
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
             {profile?.nationality && <span style={{ fontSize: 13, color: 'var(--text2)' }}>🌍 {profile.nationality}</span>}
             {profile?.supportedTeam && <span style={{ fontSize: 13, color: '#7b2fff', fontWeight: 700 }}>⚽ {profile.supportedTeam}</span>}
