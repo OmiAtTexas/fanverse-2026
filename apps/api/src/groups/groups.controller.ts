@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Headers, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Controller('groups')
@@ -115,7 +115,7 @@ export class GroupsController {
           const secondsSince = (Date.now() - new Date(lastMsg[0].created_at).getTime()) / 1000;
           if (secondsSince < 15) {
             const wait = Math.ceil(15 - secondsSince);
-            throw new Error(`Please wait ${wait} more second${wait === 1 ? '' : 's'} before sending another message`);
+            throw new HttpException({ message: `Please wait ${wait} more second${wait === 1 ? '' : 's'}`, wait, cooldown: true }, HttpStatus.TOO_MANY_REQUESTS);
           }
         }
       }
