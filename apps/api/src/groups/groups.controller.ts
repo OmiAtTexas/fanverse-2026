@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Headers } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Controller('groups')
@@ -122,6 +122,17 @@ export class GroupsController {
     });
     await this.prisma.groupMember.create({ data: { groupId: group.id, userId: user.id } });
     return group;
+  }
+
+
+  @Delete(':id/messages/:msgId')
+  async deleteMessage(@Param('id') id: string, @Param('msgId') msgId: string, @Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new Error('User not found');
+    const message = await this.prisma.message.findUnique({ where: { id: msgId } });
+    if (!message || message.senderId !== user.id) throw new Error('Not authorized');
+    await this.prisma.message.delete({ where: { id: msgId } });
+    return { success: true };
   }
 
   @Post(':id/join')
