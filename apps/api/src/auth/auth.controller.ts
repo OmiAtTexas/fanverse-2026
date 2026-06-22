@@ -32,7 +32,9 @@ export class AuthController {
         lastActiveAt: new Date(),
       },
     });
-    return user;
+    // Never return email
+    const { email: _email, ...safeUser } = user as any;
+    return safeUser;
   }
 
   @Get('me')
@@ -43,6 +45,7 @@ export class AuthController {
       select: {
         id: true, clerkId: true, displayName: true, username: true,
         avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
+        interests: true, hostCities: true,
       },
     });
   }
