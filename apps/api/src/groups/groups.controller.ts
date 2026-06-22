@@ -146,9 +146,12 @@ export class GroupsController {
   async deleteMessage(@Param('id') id: string, @Param('msgId') msgId: string, @Headers('x-user-id') clerkId: string) {
     const user = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!user) throw new Error('User not found');
-    const message = await this.prisma.message.findUnique({ where: { id: msgId } });
+    const message = await this.prisma.message.findUnique({ where: { id: msgId }, include: { sender: { select: { displayName: true } } } });
     if (!message || message.senderId !== user.id) throw new Error('Not authorized');
-    await this.prisma.message.delete({ where: { id: msgId } });
+    await this.prisma.message.update({
+      where: { id: msgId },
+      data: { content: `__deleted__${(message as any).sender?.displayName || 'Someone'}` },
+    });
     return { success: true };
   }
 
