@@ -56,6 +56,48 @@ export class UsersController {
     });
   }
 
+  @Get('connections')
+  async getConnections(@Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) return [];
+    return this.prisma.connection.findMany({
+      where: { OR: [{ senderId: user.id }, { receiverId: user.id }], status: 'ACCEPTED' },
+      include: {
+        sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
+        receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
+      },
+    });
+  }
+
+  @Get('connections/:id')
+  async getConnection(@Param('id') id: string) {
+    return this.prisma.connection.findUnique({
+      where: { id },
+      include: {
+        sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
+        receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
+      },
+    });
+  }
+
+  // IMPORTANT: @Post('me') and @Patch('me') MUST come before @Get(':id')
+  // otherwise NestJS will match 'me' as an :id param
+  @Post('me')
+  @Patch('me')
+  async updateMe(@Headers('x-user-id') clerkId: string, @Body() body: any) {
+    return this.prisma.user.update({
+      where: { clerkId },
+      data: {
+        nationality: body.nationality || null,
+        supportedTeam: body.supportedTeam || null,
+        bio: body.bio || null,
+        interests: body.interests || [],
+        hostCities: body.hostCities || [],
+        displayName: body.displayName || undefined,
+      },
+    });
+  }
+
   @Post(':id/follow-request')
   async sendFollowRequest(@Param('id') targetId: string, @Headers('x-user-id') clerkId: string) {
     const me = await this.prisma.user.findUnique({ where: { clerkId } });
@@ -96,19 +138,6 @@ export class UsersController {
     return { success: true };
   }
 
-  @Get('connections')
-  async getConnections(@Headers('x-user-id') clerkId: string) {
-    const user = await this.prisma.user.findUnique({ where: { clerkId } });
-    if (!user) return [];
-    return this.prisma.connection.findMany({
-      where: { OR: [{ senderId: user.id }, { receiverId: user.id }], status: 'ACCEPTED' },
-      include: {
-        sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
-        receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } },
-      },
-    });
-  }
-
   @Get(':id')
   async getProfile(@Param('id') id: string, @Headers('x-user-id') clerkId: string) {
     const user = await this.prisma.user.findUnique({
@@ -116,22 +145,7 @@ export class UsersController {
       select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
     });
     if (!user) return null;
-    const [enriched] = await this.enrichUsers([user], clerkId || '');
+    const [enriched] = await this.enrichUsers([user], clerkId);
     return enriched;
-  }
-
-  @Post('me')
-  @Patch('me')
-  async updateMe(@Headers('x-user-id') clerkId: string, @Body() body: any) {
-    return this.prisma.user.update({
-      where: { clerkId },
-      data: {
-        nationality: body.nationality || undefined,
-        supportedTeam: body.supportedTeam || undefined,
-        bio: body.bio !== undefined ? body.bio : undefined,
-        interests: body.interests || undefined,
-        hostCities: body.hostCities || undefined,
-      },
-    });
   }
 }
