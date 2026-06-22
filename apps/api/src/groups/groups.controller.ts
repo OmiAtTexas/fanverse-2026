@@ -41,10 +41,10 @@ export class GroupsController {
     await this.seedCityGroups();
     const user = clerkId ? await this.prisma.user.findUnique({ where: { clerkId } }) : null;
 
-    const hidden: any[] = user ? await this.prisma.$queryRaw`SELECT group_id FROM hidden_groups WHERE user_id = ${user.id}` : [];
+    const hidden: any[] = user ? await this.prisma.$queryRaw`SELECT group_id FROM hidden_groups WHERE user_id = ${user.id}`.catch(() => []) : [];
     const hiddenIds = hidden.map(h => h.group_id);
 
-    const memberGroups: any[] = user ? await this.prisma.$queryRaw`SELECT group_id FROM group_members WHERE user_id = ${user.id}` : [];
+    const memberGroups: any[] = user ? await this.prisma.$queryRaw`SELECT group_id FROM group_members WHERE user_id = ${user.id}`.catch(() => []) : [];
     const memberGroupIds = new Set(memberGroups.map(m => m.group_id));
 
     const rawGroups: any[] = await this.prisma.$queryRaw`
