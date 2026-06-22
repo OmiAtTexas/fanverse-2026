@@ -25,68 +25,79 @@ export class GroupsController {
   constructor(private prisma: PrismaService) {}
 
   private async seedCityGroups() {
-    // Get the first user to use as owner for official groups
     const adminUser = await this.prisma.user.findFirst({ orderBy: { createdAt: 'asc' } });
     if (!adminUser) return;
-
     for (const g of CITY_GROUPS) {
-      const existing = await this.prisma.$queryRaw`
-        SELECT id FROM groups WHERE city_slug = ${g.citySlug} AND is_official = true LIMIT 1
-      ` as any[];
-      if (!existing?.length) {
-        const id = 'city-' + g.citySlug;
-        await this.prisma.$executeRaw`
-          INSERT INTO groups (id, name, description, slug, city_slug, is_official, is_public, owner_id, updated_at)
-          VALUES (${id}, ${g.name}, ${g.description}, ${g.citySlug}, ${g.citySlug}, true, true, ${adminUser.id}, NOW())
-          ON CONFLICT (slug) DO NOTHING
-        `;
-      }
+      const id = 'city-' + g.citySlug;
+      await this.prisma.$executeRaw`
+        INSERT INTO groups (id, name, description, slug, city_slug, is_official, is_public, owner_id, updated_at)
+        VALUES (${id}, ${g.name}, ${g.description}, ${'official-' + g.citySlug}, ${g.citySlug}, true, true, ${adminUser.id}, NOW())
+        ON CONFLICT (id) DO NOTHING
+      `;
     }
   }
 
   @Get()
   async findAll(@Query('search') search?: string, @Headers('x-user-id') clerkId?: string) {
     await this.seedCityGroups();
-
     const user = clerkId ? await this.prisma.user.findUnique({ where: { clerkId } }) : null;
 
-    // Get hidden group IDs
-    const hidden = user ? await this.prisma.$queryRaw`
+    const hidden: any[] = user ? await this.prisma.$queryRaw`
       SELECT group_id FROM hidden_groups WHERE user_id = ${user.id}
-    ` as any[] : [];
-    const hiddenIds = hidden.map((h: any) => h.group_id);
+    ` : [];
+    const hiddenIds = hidden.map(h => h.group_id);
 
-    const groups = await this.prisma.group.findMany({
-      where: {
-        ...(search ? { name: { contains: search, mode: 'insensitive' as any } } : {}),
-        ...(hiddenIds.length > 0 ? { id: { notIn: hiddenIds } } : {}),
-      },
-      include: {
-        _count: { select: { members: true } },
-        members: user ? { where: { userId: user.id }, select: { userId: true } } : false,
-      },
-      orderBy: [{ isOfficial: 'desc' }, { createdAt: 'desc' }],
-    });
+    let groups: any[] = await this.prisma.$queryRaw`
+      SELECT g.*, 
+        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id)::int as member_count,
+        ${user ? this.prisma.$queryRaw`(SELECT COUNT(*) FROM group_members WHERE group_id = g.id AND user_id = ${user.id})::int > 0` : false} as is_member
+      FROM groups g
+      WHERE (${search || null}::text IS NULL OR g.name ILIKE ${'%' + (search || '') + '%'})
+      ${hiddenIds.length > 0 ? this.prisma.$queryRaw`AND g.id NOT IN (${hiddenIds.join(',')})` : this.prisma.$queryRaw``}
+      ORDER BY g.is_official DESC, g.created_at DESC
+    `;
 
-    return groups.map((g: any) => ({
-      ...g,
-      isMember: g.members?.length > 0,
-      members: undefined,
-    }));
+    // Simpler approach without nested queryRaw
+    const rawGroups: any[] = await this.prisma.$queryRaw`
+      SELECT g.id, g.name, g.description, g.slug, g.city_slug as "citySlug", 
+             g.is_official as "isOfficial", g.is_public as "isPublic",
+             g.owner_id as "ownerId", g.created_at as "createdAt",
+             (SELECT COUNT(*) FROM group_members WHERE group_id = g.id)::int as "memberCount"
+      FROM groups g
+      ORDER BY g.is_official DESC, g.created_at DESC
+    `;
+
+    const memberGroups: any[] = user ? await this.prisma.$queryRaw`
+      SELECT group_id FROM group_members WHERE user_id = ${user.id}
+    ` : [];
+    const memberGroupIds = new Set(memberGroups.map(m => m.group_id));
+
+    return rawGroups
+      .filter(g => !hiddenIds.includes(g.id))
+      .filter(g => !search || g.name.toLowerCase().includes(search.toLowerCase()))
+      .map(g => ({
+        ...g,
+        isMember: memberGroupIds.has(g.id),
+        _count: { members: g.memberCount },
+      }));
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string, @Headers('x-user-id') clerkId?: string) {
     const user = clerkId ? await this.prisma.user.findUnique({ where: { clerkId } }) : null;
-    const group = await this.prisma.group.findUnique({
-      where: { id },
-      include: {
-        _count: { select: { members: true } },
-        members: user ? { where: { userId: user.id }, select: { userId: true } } : false,
-      },
-    });
-    if (!group) return null;
-    return { ...group, isMember: (group as any).members?.length > 0, members: undefined };
+    const groups: any[] = await this.prisma.$queryRaw`
+      SELECT g.id, g.name, g.description, g.slug, g.city_slug as "citySlug",
+             g.is_official as "isOfficial", g.is_public as "isPublic",
+             g.owner_id as "ownerId", g.created_at as "createdAt",
+             (SELECT COUNT(*) FROM group_members WHERE group_id = g.id)::int as "memberCount"
+      FROM groups g WHERE g.id = ${id} LIMIT 1
+    `;
+    if (!groups.length) return null;
+    const g = groups[0];
+    const isMember = user ? (await this.prisma.$queryRaw`
+      SELECT 1 FROM group_members WHERE group_id = ${id} AND user_id = ${user.id} LIMIT 1
+    ` as any[]).length > 0 : false;
+    return { ...g, isMember, _count: { members: g.memberCount } };
   }
 
   @Get(':id/messages')
@@ -106,17 +117,14 @@ export class GroupsController {
     const user = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!user) throw new Error('User not found');
 
-    // Check ban
-    const bans = await this.prisma.$queryRaw`
+    const bans: any[] = await this.prisma.$queryRaw`
       SELECT * FROM group_bans WHERE group_id = ${id} AND user_id = ${user.id} AND banned_until > NOW() LIMIT 1
-    ` as any[];
-    if (bans?.length > 0) {
-      const ban = bans[0];
-      const mins = Math.ceil((new Date(ban.banned_until).getTime() - Date.now()) / 60000);
+    `;
+    if (bans.length > 0) {
+      const mins = Math.ceil((new Date(bans[0].banned_until).getTime() - Date.now()) / 60000);
       throw new Error(`You are banned from this group for ${mins} more minutes.`);
     }
 
-    // Check membership
     const member = await this.prisma.groupMember.findUnique({ where: { groupId_userId: { groupId: id, userId: user.id } } });
     if (!member) throw new Error('You must join this group to send messages');
 
@@ -135,7 +143,7 @@ export class GroupsController {
     if (!user) throw new Error('User not found');
     const slug = body.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
     const group = await this.prisma.group.create({
-      data: { name: body.name, description: body.description, citySlug: 'private', slug, isPublic: false, owner: { connect: { id: user.id } } },
+      data: { name: body.name, description: body.description || '', citySlug: 'private', slug, isPublic: false, owner: { connect: { id: user.id } } },
     });
     await this.prisma.groupMember.create({ data: { groupId: group.id, userId: user.id } });
     return group;
@@ -173,12 +181,10 @@ export class GroupsController {
   async report(@Param('id') groupId: string, @Headers('x-user-id') clerkId: string, @Body() body: any) {
     const reporter = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!reporter) throw new Error('User not found');
-
-    const warnings = await this.prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM group_warnings WHERE group_id = ${groupId} AND user_id = ${body.targetUserId}
-    ` as any[];
-    const warnCount = Number(warnings[0]?.count || 0);
-
+    const warnings: any[] = await this.prisma.$queryRaw`
+      SELECT COUNT(*)::int as count FROM group_warnings WHERE group_id = ${groupId} AND user_id = ${body.targetUserId}
+    `;
+    const warnCount = warnings[0]?.count || 0;
     if (warnCount >= 2) {
       await this.prisma.$executeRaw`
         INSERT INTO group_bans (id, group_id, user_id, banned_until)
@@ -191,7 +197,7 @@ export class GroupsController {
         INSERT INTO group_warnings (id, group_id, user_id, reason)
         VALUES (gen_random_uuid()::text, ${groupId}, ${body.targetUserId}, ${body.reason || 'Community guidelines violation'})
       `;
-      return { warned: true, warningCount: warnCount + 1, message: `Warning ${warnCount + 1}/3 issued` };
+      return { warned: true, warningCount: warnCount + 1 };
     }
   }
 }
