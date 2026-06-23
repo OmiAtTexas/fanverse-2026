@@ -69,50 +69,19 @@ export class UsersController {
     });
   }
 
-  @Get('connections/:id')
-  async getConnection(@Param('id') id: string) {
-    return this.prisma.connection.findUnique({
-      where: { id },
-      include: {
-        sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
-        receiver: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } },
-      },
-    });
-  }
-
-  // IMPORTANT: @Post('me') and @Patch('me') MUST come before
-  private async updateProfile(clerkId: string, body: any) {
-    return this.prisma.user.update({
-      where: { clerkId },
-      data: {
-        nationality: body.nationality || null,
-        supportedTeam: body.supportedTeam || null,
-        bio: body.bio || null,
-        interests: body.interests || [],
-        hostCities: body.hostCities || [],
-        displayName: body.displayName || undefined,
-      },
-    });
-  }
- @Get(':id')
-  // otherwise NestJS will match 'me' as an :id param
   @Post('me')
   async updateMePost(@Headers('x-user-id') clerkId: string, @Body() body: any) {
-    return this.updateProfile(clerkId, body);
+    return this.prisma.user.update({
+      where: { clerkId },
+      data: { nationality: body.nationality || null, supportedTeam: body.supportedTeam || null, bio: body.bio || null, interests: body.interests || [], hostCities: body.hostCities || [], displayName: body.displayName || undefined },
+    });
   }
 
   @Patch('me')
   async updateMe(@Headers('x-user-id') clerkId: string, @Body() body: any) {
     return this.prisma.user.update({
       where: { clerkId },
-      data: {
-        nationality: body.nationality || null,
-        supportedTeam: body.supportedTeam || null,
-        bio: body.bio || null,
-        interests: body.interests || [],
-        hostCities: body.hostCities || [],
-        displayName: body.displayName || undefined,
-      },
+      data: { nationality: body.nationality || null, supportedTeam: body.supportedTeam || null, bio: body.bio || null, interests: body.interests || [], hostCities: body.hostCities || [], displayName: body.displayName || undefined },
     });
   }
 
@@ -163,7 +132,7 @@ export class UsersController {
       select: { id: true, clerkId: true, displayName: true, username: true, avatarUrl: true, nationality: true, supportedTeam: true, bio: true, interests: true, hostCities: true, _count: { select: { followers: true, following: true } } },
     });
     if (!user) return null;
-    const [enriched] = await this.enrichUsers([user], clerkId);
+    const [enriched] = await this.enrichUsers([user], clerkId || '');
     return enriched;
   }
 }
