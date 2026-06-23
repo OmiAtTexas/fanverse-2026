@@ -7,6 +7,7 @@ import { AuthController } from './auth/auth.controller';
 import { MatchesController } from './matches/matches.controller';
 import { GroupsController } from './groups/groups.controller';
 import { NotificationsController } from './notifications/notifications.controller';
+import { NotificationsController } from './notifications/notifications.controller';
 import { UsersController } from './users/users.controller';
 import { ChatGateway } from './chat/chat.gateway';
 import { MessagesController } from './messages/messages.controller';
