@@ -6,6 +6,7 @@ import { PrismaService } from './prisma.service';
 import { AuthController } from './auth/auth.controller';
 import { MatchesController } from './matches/matches.controller';
 import { GroupsController } from './groups/groups.controller';
+import { NotificationsController } from './notifications/notifications.controller';
 import { UsersController } from './users/users.controller';
 import { ChatGateway } from './chat/chat.gateway';
 import { MessagesController } from './messages/messages.controller';
@@ -13,7 +14,7 @@ import { AiController } from './ai/ai.controller';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
-  controllers: [AppController, AuthController, MatchesController, GroupsController, UsersController, MessagesController, AiController],
+  controllers: [AppController, AuthController, MatchesController, GroupsController, UsersController, NotificationsController, MessagesController, AiController],
   providers: [AppService, PrismaService, ChatGateway],
 })
 export class AppModule {}
