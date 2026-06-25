@@ -13,7 +13,7 @@ export class MessagesController {
       where: { type: 'direct', members: { some: { userId: user.id } } },
       include: {
         members: { include: { user: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, supportedTeam: true } } } },
-        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+        messages: { orderBy: { createdAt: 'desc' }, take: 1, include: { sender: { select: { clerkId: true } } } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -21,6 +21,7 @@ export class MessagesController {
       id: c.id,
       lastMessage: c.messages[0]?.content || '',
       lastMessageAt: c.messages[0]?.createdAt,
+      lastMessageSenderClerkId: c.messages[0]?.sender?.clerkId || null,
       other: c.members.find(m => m.userId !== user.id)?.user,
     }));
   }
