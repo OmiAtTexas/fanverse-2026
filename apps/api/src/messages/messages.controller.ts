@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Headers, Body } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Headers, Body } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Controller('messages')
@@ -57,5 +57,36 @@ export class MessagesController {
       data: { conversationId: conversation.id, senderId: sender.id, content: body.content, type: 'TEXT' },
       include: { sender: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true } } },
     });
+  }
+
+  @Post('reactions/:messageId')
+  async addReaction(@Param('messageId') messageId: string, @Headers('x-user-id') clerkId: string, @Body() body: any) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new Error('User not found');
+    const existing = await this.prisma.$queryRawUnsafe(`SELECT id FROM message_reactions WHERE message_id = '${messageId}' AND user_id = '${user.id}' AND emoji = '${body.emoji}'`) as any[];
+    if (existing.length > 0) {
+      await this.prisma.$queryRawUnsafe(`DELETE FROM message_reactions WHERE message_id = '${messageId}' AND user_id = '${user.id}' AND emoji = '${body.emoji}'`);
+      return { removed: true };
+    }
+    await this.prisma.$queryRawUnsafe(`INSERT INTO message_reactions (id, message_id, user_id, emoji) VALUES (gen_random_uuid()::text, '${messageId}', '${user.id}', '${body.emoji}') ON CONFLICT DO NOTHING`);
+    return { added: true };
+  }
+
+  @Get('reactions/:messageId')
+  async getReactions(@Param('messageId') messageId: string) {
+    const reactions = await this.prisma.$queryRawUnsafe(`
+      SELECT mr.emoji, u.display_name as "displayName", u.clerk_id as "clerkId"
+      FROM message_reactions mr
+      JOIN users u ON u.id = mr.user_id
+      WHERE mr.message_id = '${messageId}'
+    `) as any[];
+    // Group by emoji
+    const grouped: any = {};
+    for (const r of reactions) {
+      if (!grouped[r.emoji]) grouped[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
+      grouped[r.emoji].count++;
+      grouped[r.emoji].users.push(r.clerkId);
+    }
+    return Object.values(grouped);
   }
 }
