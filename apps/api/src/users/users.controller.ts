@@ -125,6 +125,26 @@ export class UsersController {
     return { success: true };
   }
 
+  @Get(':id/followers')
+  async getFollowers(@Param('id') id: string) {
+    const follows = await this.prisma.follow.findMany({
+      where: { followingId: id },
+      include: { follower: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return follows.map((f: any) => f.follower);
+  }
+
+  @Get(':id/following')
+  async getFollowing(@Param('id') id: string) {
+    const follows = await this.prisma.follow.findMany({
+      where: { followerId: id },
+      include: { following: { select: { id: true, clerkId: true, displayName: true, avatarUrl: true, nationality: true, supportedTeam: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return follows.map((f: any) => f.following);
+  }
+
   @Get(':id')
   async getProfile(@Param('id') id: string, @Headers('x-user-id') clerkId: string) {
     const user = await this.prisma.user.findUnique({
