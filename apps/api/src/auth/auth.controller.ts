@@ -40,15 +40,18 @@ export class AuthController {
   @Get('me')
   async getMe(@Headers('x-user-id') clerkId: string) {
     if (!clerkId) return null;
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { clerkId },
       select: {
         id: true, clerkId: true, displayName: true, username: true,
         avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
         interests: true, hostCities: true,
-        _count: { select: { followers: true, following: true } },
       },
     });
+    if (!user) return null;
+    const followerCount = await this.prisma.follow.count({ where: { followingId: user.id } });
+    const followingCount = await this.prisma.follow.count({ where: { followerId: user.id } });
+    return { ...user, _count: { followers: followerCount, following: followingCount } };
   }
 }
 // Sat Jun 27 15:34:42 CDT 2026
