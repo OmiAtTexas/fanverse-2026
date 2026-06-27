@@ -46,6 +46,7 @@ export class AuthController {
         id: true, clerkId: true, displayName: true, username: true,
         avatarUrl: true, nationality: true, supportedTeam: true, bio: true,
         interests: true, hostCities: true,
+        _count: { select: { followers: true, following: true } },
       },
     });
   }
