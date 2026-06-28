@@ -59,6 +59,17 @@ export class MessagesController {
     });
   }
 
+  @Delete('conversations/:id')
+  async deleteConversation(@Param('id') id: string, @Headers('x-user-id') clerkId: string) {
+    const user = await this.prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new Error('User not found');
+    // Delete all messages first, then conversation
+    await this.prisma.message.deleteMany({ where: { conversationId: id } });
+    await this.prisma.conversationMember.deleteMany({ where: { conversationId: id } });
+    await this.prisma.conversation.delete({ where: { id } });
+    return { success: true };
+  }
+
   @Post('reactions/:messageId')
   async addReaction(@Param('messageId') messageId: string, @Headers('x-user-id') clerkId: string, @Body() body: any) {
     const user = await this.prisma.user.findUnique({ where: { clerkId } });
