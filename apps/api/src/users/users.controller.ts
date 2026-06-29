@@ -89,8 +89,11 @@ export class UsersController {
   async sendFollowRequest(@Param('id') targetId: string, @Headers('x-user-id') clerkId: string) {
     const me = await this.prisma.user.findUnique({ where: { clerkId } });
     if (!me) throw new Error('User not found');
+    if (me.id === targetId) return { status: 'SELF' };
     const existing = await this.prisma.followRequest.findFirst({ where: { fromId: me.id, toId: targetId } });
     if (existing) return { status: existing.status };
+    const alreadyFollowing = await this.prisma.follow.findUnique({ where: { followerId_followingId: { followerId: me.id, followingId: targetId } } });
+    if (alreadyFollowing) return { status: 'ACCEPTED' };
     return this.prisma.followRequest.create({ data: { fromId: me.id, toId: targetId, status: 'PENDING' } });
   }
 
